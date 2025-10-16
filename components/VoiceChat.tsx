@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
-import { GoogleGenAI, LiveServerMessage, Modality, Blob } from "@google/genai";
+// FIX: Alias the imported `Blob` type to `GeminiBlob` to avoid conflict with the global `Blob` type.
+import { GoogleGenAI, LiveServerMessage, Modality, type Blob as GeminiBlob } from "@google/genai";
 import { MicrophoneIcon, CameraIcon } from './icons/FeatureIcons';
 
 // Base64 encoding/decoding and audio processing functions from Gemini documentation
@@ -177,7 +178,8 @@ export const VoiceChat: FC = () => {
             
             scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
               const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-              const pcmBlob: Blob = {
+              // FIX: Use the aliased `GeminiBlob` type to prevent a type collision with the browser's global `Blob` type.
+              const pcmBlob: GeminiBlob = {
                 data: encode(new Uint8Array(new Int16Array(inputData.map(x => x * 32768)).buffer)),
                 mimeType: 'audio/pcm;rate=16000',
               };

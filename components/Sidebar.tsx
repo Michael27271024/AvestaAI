@@ -9,16 +9,11 @@ import {
     DocumentIcon,
     ImageIcon,
     EditIcon,
-    ImageToVideoIcon,
-    VideoIcon,
     SearchIcon,
     CodeIcon,
     CodeBracketsIcon,
     GamepadIcon,
     AndroidIcon,
-    MusicPencilIcon,
-    MusicIcon,
-    DownloadIcon,
     XIcon
 } from './icons/FeatureIcons';
 
@@ -46,8 +41,6 @@ const navItems = [
             { id: 'document', label: 'دستیار اسناد', icon: DocumentIcon },
             { id: 'image-gen', label: 'تولید تصویر', icon: ImageIcon },
             { id: 'image-edit', label: 'ویرایشگر تصویر', icon: EditIcon },
-            { id: 'image-to-video', label: 'تبدیل عکس به ویدیو', icon: ImageToVideoIcon },
-            { id: 'video', label: 'تولید ویدیو', icon: VideoIcon },
         ]
     },
     {
@@ -57,15 +50,6 @@ const navItems = [
             { id: 'website-builder', label: 'سازنده وب‌سایت', icon: CodeIcon },
             { id: 'game-builder', label: 'سازنده بازی', icon: GamepadIcon },
             { id: 'android-builder', label: 'سازنده اپ اندروید', icon: AndroidIcon },
-        ]
-    },
-    {
-        title: 'موسیقی و رسانه',
-        items: [
-            { id: 'songwriter', label: 'دستیار ترانه‌سرا', icon: MusicPencilIcon },
-            { id: 'song-identifier', label: 'تشخیص آهنگ', icon: MusicIcon },
-            { id: 'song-search', label: 'جستجوی آهنگ', icon: SearchIcon },
-            { id: 'social-downloader', label: 'دانلود از شبکه‌ها', icon: DownloadIcon },
         ]
     }
 ];

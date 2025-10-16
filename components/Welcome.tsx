@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import type { ActiveView } from '../types';
-import { ImageIcon, TextIcon, CodeIcon, SearchIcon, VideoIcon, SendIcon, EditIcon } from './icons/FeatureIcons';
+import { ImageIcon, TextIcon, CodeIcon, SearchIcon, SendIcon, EditIcon, VoiceIcon } from './icons/FeatureIcons';
 
 interface WelcomeProps {
     setActiveView: (view: ActiveView) => void;
@@ -32,6 +32,12 @@ export const Welcome: FC<WelcomeProps> = ({ setActiveView }) => {
     
     const features = [
         {
+            title: 'چت صوتی',
+            description: 'یک مکالمه طبیعی و زنده با هوش مصنوعی داشته باشید.',
+            icon: VoiceIcon,
+            view: 'voice-chat' as ActiveView
+        },
+        {
             title: 'تولید تصویر',
             description: 'با توصیف آنچه در ذهن دارید، تخیل خود را به تصاویر خیره‌کننده تبدیل کنید.',
             icon: ImageIcon,
@@ -60,12 +66,6 @@ export const Welcome: FC<WelcomeProps> = ({ setActiveView }) => {
             description: 'پاسخ‌های به‌روز را از وب دریافت کنید که توسط هوش مصنوعی با ذکر منبع خلاصه‌سازی شده‌اند.',
             icon: SearchIcon,
             view: 'search' as ActiveView
-        },
-        {
-            title: 'تولید ویدیو',
-            description: 'کلیپ‌های ویدیویی کوتاه را از طریق توصیفات متنی ساده خلق کنید.',
-            icon: VideoIcon,
-            view: 'video' as ActiveView
         }
     ];
 

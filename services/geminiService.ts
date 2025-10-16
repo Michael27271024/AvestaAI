@@ -1,3 +1,5 @@
+
+
 import { GoogleGenAI, Type, Modality } from '@google/genai';
 import type { Chat, GenerateContentResponse } from '@google/genai';
 import type { ThinkingMode } from '../components/ThinkingModeToggle';
@@ -163,60 +165,68 @@ export const geminiService = {
             throw new Error("خطا در ویرایش تصویر.");
         }
     },
-    
+
+    // FIX: Implement missing 'generateVideo' method for the VideoGenerator component.
     // Video Generator
     generateVideo: async (prompt: string): Promise<string> => {
         try {
             let operation = await ai.models.generateVideos({
                 model: 'veo-2.0-generate-001',
                 prompt: prompt,
-                config: { numberOfVideos: 1 }
+                config: {
+                    numberOfVideos: 1
+                }
             });
 
             while (!operation.done) {
-                await new Promise(resolve => setTimeout(resolve, 10000));
+                await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10 seconds
                 operation = await ai.operations.getVideosOperation({ operation: operation });
             }
 
             const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-            if (!downloadLink) throw new Error("Video URI not found in response.");
-
-            const response = await fetch(`${downloadLink}&key=${API_KEY}`);
-            const videoBlob = await response.blob();
-            return URL.createObjectURL(videoBlob);
+            if (!downloadLink) {
+                throw new Error("Video generation succeeded but no download link was provided.");
+            }
+            
+            return `${downloadLink}&key=${API_KEY}`;
+            
         } catch (error) {
             console.error("Error generating video:", error);
-            throw new Error("خطا در تولید ویدیو. این فرآیند ممکن است زمان‌بر باشد و گاهی با خطا مواجه شود.");
+            throw new Error("خطا در تولید ویدیو. لطفاً دوباره تلاش کنید.");
         }
     },
 
+    // FIX: Implement missing 'generateVideoFromImage' method for the ImageToVideoGenerator component.
     // Image to Video Generator
-    generateVideoFromImage: async (prompt: string, base64Image: string, mimeType: string): Promise<string> => {
-         try {
+    generateVideoFromImage: async (prompt: string, base64ImageData: string, mimeType: string): Promise<string> => {
+        try {
             let operation = await ai.models.generateVideos({
                 model: 'veo-2.0-generate-001',
                 prompt: prompt,
                 image: {
-                    imageBytes: base64Image,
+                    imageBytes: base64ImageData,
                     mimeType: mimeType,
                 },
-                config: { numberOfVideos: 1 }
+                config: {
+                    numberOfVideos: 1
+                }
             });
 
             while (!operation.done) {
-                await new Promise(resolve => setTimeout(resolve, 10000));
+                await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10 seconds
                 operation = await ai.operations.getVideosOperation({ operation: operation });
             }
-
+            
             const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-            if (!downloadLink) throw new Error("Video URI not found in response.");
+             if (!downloadLink) {
+                throw new Error("Video generation succeeded but no download link was provided.");
+            }
+            
+            return `${downloadLink}&key=${API_KEY}`;
 
-            const response = await fetch(`${downloadLink}&key=${API_KEY}`);
-            const videoBlob = await response.blob();
-            return URL.createObjectURL(videoBlob);
         } catch (error) {
             console.error("Error generating video from image:", error);
-            throw new Error("خطا در متحرک سازی تصویر. این فرآیند ممکن است زمان‌بر باشد و گاهی با خطا مواجه شود.");
+            throw new Error("خطا در متحرک‌سازی تصویر. لطفاً دوباره تلاش کنید.");
         }
     },
 
@@ -236,6 +246,80 @@ export const geminiService = {
         } catch (error) {
             console.error("Error with grounded search:", error);
             return { text: "خطا در جستجو.", sources: [] };
+        }
+    },
+
+    // FIX: Implement missing 'identifySongFromVideo' method for the SongIdentifier component.
+    // Song Identifier
+    identifySongFromVideo: async (videoFile: File): Promise<string> => {
+        try {
+            const videoPart = {
+                inlineData: {
+                    mimeType: videoFile.type,
+                    data: await fileToBase64(videoFile),
+                },
+            };
+            const textPart = {
+                text: "What song is playing in this video? Provide only the song title and artist. If you cannot identify it, please respond in Farsi that you couldn't identify it, for example: 'متاسفانه نتوانستم آهنگ را تشخیص دهم'.",
+            };
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash', // This model supports video input
+                contents: { parts: [videoPart, textPart] },
+            });
+
+            return response.text.trim();
+        } catch (error) {
+            console.error("Error identifying song from video:", error);
+            throw new Error("خطا در تحلیل ویدیو. لطفاً دوباره تلاش کنید.");
+        }
+    },
+
+    // FIX: Implement missing 'searchIranianMusic' method for the SongSearch component.
+    // Song Search
+    searchIranianMusic: async (query: string): Promise<any[]> => {
+        try {
+            const schema = {
+                type: Type.OBJECT,
+                properties: {
+                    songs: {
+                        type: Type.ARRAY,
+                        description: "A list of songs matching the query. Search internal knowledge and common Iranian music websites.",
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING, description: "The song title." },
+                                artist: { type: Type.STRING, description: "The artist's name." },
+                                coverArtUrl: { type: Type.STRING, description: "URL for the album or song cover art. Should be a direct image link." },
+                                pageUrl: { type: Type.STRING, description: "URL to a page where the song can be found (e.g., RadioJavan, Bia2Music)." },
+                                audioSrc: { type: Type.STRING, description: "Optional direct URL to an MP3 file for streaming." },
+                            },
+                            required: ['title', 'artist', 'coverArtUrl', 'pageUrl'],
+                        },
+                    },
+                },
+                required: ['songs'],
+            };
+            
+            const fullPrompt = `Search for the Iranian song "${query}". Return a list of up to 8 matching songs with their title, artist, a direct image URL for cover art, a page URL from a known Persian music source, and if possible, a direct audio source URL. Respond in JSON format. If no results are found, return an empty array for "songs".`;
+    
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: fullPrompt,
+                config: {
+                    ...getModelConfig('fast', false),
+                    responseMimeType: "application/json",
+                    responseSchema: schema,
+                },
+            });
+            
+            // FIX: Trim whitespace from the response text before parsing, as it can sometimes contain leading/trailing whitespace.
+            const jsonResponse = JSON.parse(response.text.trim());
+            return jsonResponse.songs || [];
+    
+        } catch (error) {
+            console.error("Error searching for Iranian music:", error);
+            throw new Error("خطا در جستجوی آهنگ. لطفاً دوباره تلاش کنید.");
         }
     },
 
@@ -284,7 +368,8 @@ export const geminiService = {
                 },
             });
             
-            const jsonResponse = JSON.parse(response.text);
+            // FIX: Trim whitespace from the response text before parsing, as it can sometimes contain leading/trailing whitespace.
+            const jsonResponse = JSON.parse(response.text.trim());
             return jsonResponse.files as CodeFile[];
 
         } catch (error) {
@@ -333,7 +418,8 @@ export const geminiService = {
                 },
             });
             
-            const jsonResponse = JSON.parse(response.text);
+            // FIX: Trim whitespace from the response text before parsing, as it can sometimes contain leading/trailing whitespace.
+            const jsonResponse = JSON.parse(response.text.trim());
             return jsonResponse.files as CodeFile[];
 
         } catch (error) {
@@ -347,73 +433,4 @@ export const geminiService = {
         const prompt = `Here is a code snippet:\n\n\`\`\`\n${inputCode}\n\`\`\`\n\nPlease perform the following instruction on this code: "${instruction}"\n\nProvide only the resulting code or explanation as requested.`;
         return geminiService.generateText(prompt, mode);
     },
-
-    // Song Identifier
-    identifySongFromVideo: async (videoFile: File): Promise<string> => {
-        try {
-            const base64Data = await fileToBase64(videoFile);
-            const videoPart = {
-                inlineData: {
-                    mimeType: videoFile.type,
-                    data: base64Data,
-                },
-            };
-            const textPart = {
-                text: "Analyze the audio in this video and identify the song playing. Provide only the song title and artist name. If you cannot identify it, just respond with 'Could not identify the song.'",
-            };
-            
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: { parts: [videoPart, textPart] }
-            });
-
-            return response.text;
-
-        } catch (error) {
-            console.error("Error identifying song from video:", error);
-            throw new Error("خطا در شناسایی آهنگ از ویدیو.");
-        }
-    },
-    
-    // Song Search (specific for Iranian music)
-    searchIranianMusic: async (query: string): Promise<{ title: string, artist: string, coverArtUrl: string, pageUrl: string, audioSrc?: string }[]> => {
-        try {
-            const schema = {
-                type: Type.OBJECT,
-                properties: {
-                    songs: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING },
-                                artist: { type: Type.STRING },
-                                coverArtUrl: { type: Type.STRING },
-                                pageUrl: { type: Type.STRING },
-                                audioSrc: { type: Type.STRING, description: "Direct URL to the MP3 file if available, otherwise empty." }
-                            },
-                            required: ['title', 'artist', 'coverArtUrl', 'pageUrl']
-                        }
-                    }
-                },
-                required: ['songs']
-            };
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Find the song "${query}" from popular Iranian music websites like Ganja2Music, Bia2Music, or similar. Provide the title, artist, a URL to the cover art, the URL of the song's page, and a direct link to the 320kbps MP3 if you can find one. Respond in JSON format.`,
-                config: {
-                    ...getModelConfig('fast', false),
-                    responseMimeType: 'application/json',
-                    responseSchema: schema
-                }
-            });
-
-            const jsonResponse = JSON.parse(response.text);
-            return jsonResponse.songs;
-        } catch (error) {
-            console.error('Error searching for music:', error);
-            throw new Error("خطا در جستجوی آهنگ. وب‌سایت‌های منبع ممکن است در دسترس نباشند.");
-        }
-    }
 };

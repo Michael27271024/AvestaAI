@@ -1,4 +1,4 @@
-export type ActiveView = 'welcome' | 'chat' | 'text' | 'image-gen' | 'image-edit' | 'video' | 'search' | 'image-to-video' | 'document' | 'voice-chat' | 'website-builder' | 'game-builder' | 'android-builder' | 'code-assistant' | 'songwriter' | 'song-identifier' | 'social-downloader' | 'song-search';
+export type ActiveView = 'welcome' | 'chat' | 'text' | 'image-gen' | 'image-edit' | 'search' | 'document' | 'voice-chat' | 'website-builder' | 'game-builder' | 'android-builder' | 'code-assistant';
 
 export interface ChatMessage {
   sender: 'user' | 'ai';
