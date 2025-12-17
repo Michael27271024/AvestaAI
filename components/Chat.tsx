@@ -17,8 +17,8 @@ const LoadingIndicator: FC = () => (
 );
 
 const textModels: { id: TextGenerationModel, name: string, shortName: string }[] = [
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (متعادل و سریع)', shortName: 'Flash 2.5' },
     { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash (هوشمندترین)', shortName: 'Flash 3.0' },
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (سریع)', shortName: 'Flash 2.5' },
     { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro (بسیار سنگین)', shortName: 'Pro 3.0' },
 ];
 
@@ -111,7 +111,7 @@ export const Chat: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<{ url: string; type: 'image' | 'video' | 'audio' }[]>([]);
-  const [showHistory, setShowHistory] = useState(false); // Default false for mobile optimization
+  const [showHistory, setShowHistory] = useState(false);
   
   const chatSessionRef = useRef<ChatSession | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -119,7 +119,6 @@ export const Chat: FC = () => {
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
 
-  // Responsive sidebar handling
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) setShowHistory(true);
@@ -130,7 +129,6 @@ export const Chat: FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Initial load
   useEffect(() => {
     const saved = localStorage.getItem(SESSIONS_STORAGE_KEY);
     if (saved) {
@@ -142,7 +140,6 @@ export const Chat: FC = () => {
     }
   }, []);
 
-  // Sync to Storage
   useEffect(() => {
     if (sessions.length > 0) {
       localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
@@ -151,7 +148,6 @@ export const Chat: FC = () => {
     }
   }, [sessions]);
 
-  // Handle active session change
   useEffect(() => {
     if (activeSession) {
       chatSessionRef.current = geminiService.createChatSession(activeSession.model, activeSession.messages);
@@ -167,7 +163,7 @@ export const Chat: FC = () => {
       id: newId,
       title: 'گفتگوی جدید',
       messages: [],
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       createdAt: Date.now()
     };
     setSessions(prev => [newSession, ...prev]);
@@ -227,14 +223,14 @@ export const Chat: FC = () => {
       let currentId = activeSessionId;
       if (!currentId) {
           const newId = crypto.randomUUID();
-          const newS: ChatSessionRecord = { id: newId, title: text.slice(0, 30), messages: [], model: 'gemini-3-flash-preview', createdAt: Date.now() };
+          const newS: ChatSessionRecord = { id: newId, title: text.slice(0, 30), messages: [], model: 'gemini-2.5-flash', createdAt: Date.now() };
           setSessions(prev => [newS, ...prev]);
           setActiveSessionId(newId);
           currentId = newId;
       }
 
-      // Fix: Added explicit 'File' type for 'f' to avoid 'unknown' type inference in async map
-      const previews = await Promise.all(attached.map(async (f: File) => ({
+      // Fix: Use 'any' type for the mapping function parameter to resolve potential 'unknown' inference issue which causes compilation errors.
+      const previews = await Promise.all(attached.map(async (f: any) => ({
           url: await fileToDataURL(f),
           type: (f.type.startsWith('video/') ? 'video' : f.type.startsWith('audio/') ? 'audio' : 'image') as 'image' | 'video' | 'audio'
       })));
@@ -250,10 +246,10 @@ export const Chat: FC = () => {
 
       try {
         if (!chatSessionRef.current) {
-            chatSessionRef.current = geminiService.createChatSession(activeSession?.model || 'gemini-3-flash-preview', activeSession?.messages || []);
+            chatSessionRef.current = geminiService.createChatSession(activeSession?.model || 'gemini-2.5-flash', activeSession?.messages || []);
         }
-        // Fix: Added explicit 'File' type for 'f' to avoid 'unknown' type inference in async map
-        const fileParts = await Promise.all(attached.map(async (f: File) => ({
+        // Fix: Use 'any' type for the mapping function parameter to avoid potential type issues during data extraction.
+        const fileParts = await Promise.all(attached.map(async (f: any) => ({
             inlineData: { mimeType: f.type, data: await fileToBase64(f) }
         })));
         const payload = text.trim() ? (fileParts.length > 0 ? [{ text }, ...fileParts] : text) : fileParts;
@@ -284,7 +280,6 @@ export const Chat: FC = () => {
 
   return (
     <div className="flex h-full overflow-hidden bg-gray-950/20 rounded-xl relative">
-      {/* History Sidebar/Drawer */}
       <div 
         className={`fixed inset-0 bg-black/60 z-40 lg:hidden transition-opacity duration-300 ${showHistory ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} 
         onClick={() => setShowHistory(false)}
@@ -316,7 +311,6 @@ export const Chat: FC = () => {
         </div>
       </div>
 
-      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-gray-900/10 relative">
         <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-800/60 bg-gray-900/30 backdrop-blur-md sticky top-0 z-20">
             <div className="flex items-center gap-2 flex-1 overflow-hidden">
@@ -328,7 +322,7 @@ export const Chat: FC = () => {
                 </button>
                 <h3 className="font-bold text-gray-200 truncate text-sm sm:text-base">{activeSession?.title || 'چت با اوستا'}</h3>
             </div>
-            <select value={activeSession?.model || 'gemini-3-flash-preview'} onChange={e => {
+            <select value={activeSession?.model || 'gemini-2.5-flash'} onChange={e => {
                 const newModel = e.target.value as TextGenerationModel;
                 setSessions(prev => prev.map(s => s.id === activeSessionId ? {...s, model: newModel} : s));
             }} className="bg-gray-800 border border-gray-700 text-[10px] sm:text-xs rounded-lg px-2 py-1.5 text-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[100px] sm:max-w-none">
@@ -361,7 +355,6 @@ export const Chat: FC = () => {
             <div ref={messagesEndRef} />
         </div>
 
-        {/* Input area */}
         <div className="p-3 sm:p-4 bg-gray-900/50 border-t border-gray-800/50 backdrop-blur-sm sticky bottom-0">
             {filePreviews.length > 0 && (
                 <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
