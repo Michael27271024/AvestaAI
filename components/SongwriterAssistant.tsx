@@ -1,7 +1,8 @@
+
+
 import React, { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { geminiService } from '../services/geminiService';
-import { ThinkingModeToggle, ThinkingMode } from './ThinkingModeToggle';
 import { InfoIcon } from './icons/FeatureIcons';
 
 export const SongwriterAssistant: FC = () => {
@@ -9,7 +10,6 @@ export const SongwriterAssistant: FC = () => {
   const [result, setResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState<ThinkingMode>('creative');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -18,7 +18,7 @@ export const SongwriterAssistant: FC = () => {
     setIsLoading(true);
     setError('');
     setResult('');
-    const response = await geminiService.generateText(prompt, mode);
+    const response = await geminiService.generateText(prompt);
     // A simple check to see if the response is an error message we generated
     if (response.toLowerCase().includes('خطا')) {
         setError(response);
@@ -44,7 +44,6 @@ export const SongwriterAssistant: FC = () => {
             <button type="submit" className="px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isLoading}>
               {isLoading ? 'در حال نوشتن...' : 'بنویس'}
             </button>
-            <ThinkingModeToggle mode={mode} setMode={setMode} disabled={isLoading} />
         </div>
          {error && <p className="text-red-400 mt-2">{error}</p>}
       </form>

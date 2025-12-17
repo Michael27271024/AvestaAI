@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import { geminiService, fileToBase64 } from '../services/geminiService';
 import { InfoIcon, XIcon, DownloadIcon } from './icons/FeatureIcons';
+import type { ImageEditingModel } from '../types';
+
+const imageEditModels: { id: ImageEditingModel | string, name: string, disabled?: boolean }[] = [
+    { id: 'gemini-2.5-flash-image', name: 'Gemini Flash / Nano Banana' },
+    { id: 'imagen-4.0-generate-001', name: 'Imagen 4 (فقط تولید)', disabled: true },
+    { id: 'imagen-3.0-generate-001', name: 'Imagen 3 (فقط تولید)', disabled: true },
+];
 
 export const ImageEditor: FC = () => {
     const [prompt, setPrompt] = useState('');
@@ -11,6 +18,7 @@ export const ImageEditor: FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+    const [model, setModel] = useState<ImageEditingModel>('gemini-2.5-flash-image');
 
     useEffect(() => {
         // Cleanup function to revoke object URLs
@@ -25,8 +33,6 @@ export const ImageEditor: FC = () => {
             const newFiles = Array.from(files);
             setOriginalImages(prev => [...prev, ...newFiles]);
 
-            // FIX: Explicitly type 'file' as 'File' to help TypeScript's type inference.
-            // This resolves an issue where 'file' could be inferred as 'unknown', which is not assignable to `URL.createObjectURL`.
             const newPreviews = newFiles.map((file: File) => URL.createObjectURL(file));
             setOriginalImagePreviews(prev => [...prev, ...newPreviews]);
             
@@ -65,7 +71,7 @@ export const ImageEditor: FC = () => {
                 }))
             );
 
-            const response = await geminiService.generateFromImages(prompt, imagePayload);
+            const response = await geminiService.generateFromImages(prompt, imagePayload, model);
             setGeneratedResult(response);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'خطای ناشناخته رخ داد.');
@@ -97,18 +103,33 @@ export const ImageEditor: FC = () => {
                 {/* Input Panel */}
                 <div className="flex flex-col gap-4 overflow-y-auto pr-2">
                     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                        <div>
-                            <label htmlFor="image-upload" className="block text-sm font-medium text-gray-300 mb-2">۱. آپلود عکس</label>
-                            <input
-                                id="image-upload"
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={handleImageChange}
-                                className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30"
-                                disabled={isLoading}
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="image-upload" className="block text-sm font-medium text-gray-300 mb-2">۱. آپلود عکس</label>
+                                <input
+                                    id="image-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    onChange={handleImageChange}
+                                    className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30"
+                                    disabled={isLoading}
+                                />
+                            </div>
+                             <div>
+                                <label htmlFor="model-select" className="block text-sm font-medium text-gray-300 mb-2">مدل هوش مصنوعی</label>
+                                <select 
+                                    id="model-select" 
+                                    value={model} 
+                                    onChange={e => setModel(e.target.value as ImageEditingModel)} 
+                                    className="block w-full p-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                                    disabled={isLoading}
+                                >
+                                    {imageEditModels.map(m => <option key={m.id} value={m.id} disabled={m.disabled}>{m.name}</option>)}
+                                </select>
+                             </div>
                         </div>
+
                         {originalImagePreviews.length > 0 && (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-gray-800/50 rounded-lg">
                                 {originalImagePreviews.map((preview, index) => (

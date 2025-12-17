@@ -9,12 +9,15 @@ import {
     DocumentIcon,
     ImageIcon,
     EditIcon,
+    VideoIcon,
+    ImageToVideoIcon,
     SearchIcon,
     CodeIcon,
     CodeBracketsIcon,
     GamepadIcon,
     AndroidIcon,
-    XIcon
+    XIcon,
+    MusicIcon
 } from './icons/FeatureIcons';
 
 interface SidebarProps {
@@ -41,6 +44,17 @@ const navItems = [
             { id: 'document', label: 'دستیار اسناد', icon: DocumentIcon },
             { id: 'image-gen', label: 'تولید تصویر', icon: ImageIcon },
             { id: 'image-edit', label: 'ویرایشگر تصویر', icon: EditIcon },
+            { id: 'video-gen', label: 'تولید ویدیو', icon: VideoIcon },
+            { id: 'image-to-video', label: 'متحرک سازی عکس', icon: ImageToVideoIcon },
+        ]
+    },
+    {
+        title: 'موسیقی و صدا',
+        items: [
+            { id: 'songwriter-assistant', label: 'دستیار ترانه‌سرا', icon: TextIcon },
+            { id: 'audio-gen', label: 'تولید صدا (TTS)', icon: VoiceIcon },
+            { id: 'song-identifier', label: 'تشخیص آهنگ از ویدیو', icon: SearchIcon },
+            { id: 'song-search', label: 'جستجو و پخش آهنگ', icon: MusicIcon },
         ]
     },
     {

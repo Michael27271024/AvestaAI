@@ -1,15 +1,24 @@
+
+
 import React, { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { geminiService } from '../services/geminiService';
-import { ThinkingModeToggle, ThinkingMode } from './ThinkingModeToggle';
 import { InfoIcon } from './icons/FeatureIcons';
+import type { TextGenerationModel } from '../types';
+
+const textModels: { id: TextGenerationModel, name: string }[] = [
+    { id: 'gemini-flash-lite-latest', name: 'Gemini 2.0 Flash Lite (سبک و سریع)' },
+    { id: 'gemini-flash-latest', name: 'Gemini 2.0 Flash (استاندارد جدید)' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (متعادل)' },
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro (قدرتمندترین)' },
+];
 
 export const TextGenerator: FC = () => {
   const [prompt, setPrompt] = useState('');
   const [result, setResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState<ThinkingMode>('creative');
+  const [model, setModel] = useState<TextGenerationModel>('gemini-2.5-flash');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -18,7 +27,7 @@ export const TextGenerator: FC = () => {
     setIsLoading(true);
     setError('');
     setResult('');
-    const response = await geminiService.generateText(prompt, mode);
+    const response = await geminiService.generateText(prompt, model);
     // A simple check to see if the response is an error message we generated
     if (response.toLowerCase().includes('خطا')) {
         setError(response);
@@ -43,7 +52,16 @@ export const TextGenerator: FC = () => {
             <button type="submit" className="px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isLoading}>
               {isLoading ? 'در حال تولید...' : 'تولید کن'}
             </button>
-            <ThinkingModeToggle mode={mode} setMode={setMode} disabled={isLoading} />
+            <div className="flex items-center gap-2">
+                 <select 
+                    value={model} 
+                    onChange={e => setModel(e.target.value as TextGenerationModel)} 
+                    className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                    disabled={isLoading}
+                >
+                    {textModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+            </div>
         </div>
          {error && <p className="text-red-400 mt-2">{error}</p>}
       </form>

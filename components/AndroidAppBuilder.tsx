@@ -1,8 +1,9 @@
+
+
 import React, { useState, useEffect } from 'react';
 import type { FC, FormEvent } from 'react';
 import { geminiService } from '../services/geminiService';
 import type { CodeFile } from '../types';
-import { ThinkingModeToggle, ThinkingMode } from './ThinkingModeToggle';
 import { InfoIcon } from './icons/FeatureIcons';
 
 const languageOptions = [
@@ -16,7 +17,6 @@ export const AndroidAppBuilder: FC = () => {
     const [files, setFiles] = useState<CodeFile[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [mode, setMode] = useState<ThinkingMode>('creative');
     const [language, setLanguage] = useState('compose');
     const [activeFile, setActiveFile] = useState<CodeFile | null>(null);
     const [explanation, setExplanation] = useState('');
@@ -46,7 +46,7 @@ export const AndroidAppBuilder: FC = () => {
         setEditInstruction('');
         
         try {
-            const responseFiles = await geminiService.generateCodeProject(prompt, 'android', language, mode);
+            const responseFiles = await geminiService.generateCodeProject(prompt, 'android', language);
             setFiles(responseFiles);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -63,7 +63,7 @@ export const AndroidAppBuilder: FC = () => {
         setError('');
 
         try {
-            const responseFiles = await geminiService.editCodeProject(files, editInstruction, 'android', language, mode);
+            const responseFiles = await geminiService.editCodeProject(files, editInstruction, 'android', language);
             setFiles(responseFiles);
             setEditInstruction(''); // Clear input on success
         } catch (err) {
@@ -103,7 +103,6 @@ export const AndroidAppBuilder: FC = () => {
                             {languageOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                     </div>
-                    <ThinkingModeToggle mode={mode} setMode={setMode} disabled={isLoading || isEditing} />
                 </div>
                 {error && <p className="text-red-400 mt-2">{error}</p>}
             </form>

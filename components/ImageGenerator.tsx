@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+
+
+import React, { useState, useEffect } from 'react';
 import type { FC, FormEvent } from 'react';
 import { geminiService } from '../services/geminiService';
-import { ThinkingModeToggle, ThinkingMode } from './ThinkingModeToggle';
 import { InfoIcon, DownloadIcon } from './icons/FeatureIcons';
+import type { ImageGenerationModel } from '../types';
+
+const imageModels: { id: ImageGenerationModel, name: string, supportsMultiple: boolean, supportsAspectRatio: boolean, requiresApiKey: boolean }[] = [
+    { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash Image (سریع)', supportsMultiple: false, supportsAspectRatio: false, requiresApiKey: false },
+    { id: 'gemini-3-pro-image-preview', name: 'Gemini 3.0 Pro Image (کیفیت بالا)', supportsMultiple: false, supportsAspectRatio: true, requiresApiKey: true },
+    { id: 'imagen-3.0-generate-001', name: 'Imagen 3 (کیفیت خوب)', supportsMultiple: true, supportsAspectRatio: true, requiresApiKey: false },
+    { id: 'imagen-4.0-generate-001', name: 'Imagen 4 (جدیدترین)', supportsMultiple: true, supportsAspectRatio: true, requiresApiKey: false },
+];
 
 export const ImageGenerator: FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -12,12 +21,55 @@ export const ImageGenerator: FC = () => {
   const [numImages, setNumImages] = useState(1);
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [enhancedPrompt, setEnhancedPrompt] = useState('');
-  const [mode, setMode] = useState<ThinkingMode>('creative');
+  const [model, setModel] = useState<ImageGenerationModel>('gemini-2.5-flash-image');
+
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
   
   const aspectRatios = ["1:1", "16:9", "9:16", "4:3", "3:4"];
+  const currentModelConfig = imageModels.find(m => m.id === model);
+
+  useEffect(() => {
+    const checkKey = async () => {
+        if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+            const keyStatus = await window.aistudio.hasSelectedApiKey();
+            setHasApiKey(keyStatus);
+        } else {
+            setHasApiKey(true);
+        }
+        setIsCheckingApiKey(false);
+    };
+    checkKey();
+  }, []);
+
+  const handleSelectKey = async () => {
+    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+        await window.aistudio.openSelectKey();
+        setHasApiKey(true);
+        setError(''); 
+    }
+  };
+
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newModelId = e.target.value as ImageGenerationModel;
+    setModel(newModelId);
+    const selectedModel = imageModels.find(m => m.id === newModelId);
+    if (selectedModel) {
+        if (!selectedModel.supportsMultiple) {
+            setNumImages(1);
+        }
+        if (!selectedModel.supportsAspectRatio) {
+            setAspectRatio('1:1');
+        }
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (currentModelConfig?.requiresApiKey && !hasApiKey) {
+        setError("لطفا ابتدا یک کلید API انتخاب کنید.");
+        return;
+    }
     if (!prompt.trim() || isLoading) return;
 
     setIsLoading(true);
@@ -25,11 +77,15 @@ export const ImageGenerator: FC = () => {
     setError('');
     setEnhancedPrompt('');
     try {
-        const response = await geminiService.generateImages(prompt, numImages, aspectRatio, mode);
+        const response = await geminiService.generateImages(prompt, numImages, aspectRatio, model);
         setImages(response.images);
         setEnhancedPrompt(response.translatedPrompt);
     } catch(err) {
-        setError(err instanceof Error ? err.message : 'خطای ناشناخته رخ داد.');
+        const errorMsg = err instanceof Error ? err.message : 'خطای ناشناخته رخ داد.';
+        setError(errorMsg);
+        if (errorMsg.includes("خطا در کلید API")) {
+             setHasApiKey(false);
+        }
     } finally {
         setIsLoading(false);
     }
@@ -61,22 +117,43 @@ export const ImageGenerator: FC = () => {
         />
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label htmlFor="numImages">تعداد:</label>
-            <select id="numImages" value={numImages} onChange={e => setNumImages(Number(e.target.value))} className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isLoading}>
+            <label htmlFor="model-select" className="text-sm">مدل:</label>
+            <select id="model-select" value={model} onChange={handleModelChange} className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isLoading}>
+                {imageModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="numImages" className={!currentModelConfig?.supportsMultiple ? 'text-gray-500' : ''}>تعداد:</label>
+            <select id="numImages" value={numImages} onChange={e => setNumImages(Number(e.target.value))} className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled={isLoading || !currentModelConfig?.supportsMultiple}>
                 {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label htmlFor="aspectRatio">نسبت تصویر:</label>
-            <select id="aspectRatio" value={aspectRatio} onChange={e => setAspectRatio(e.target.value)} className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isLoading}>
+            <label htmlFor="aspectRatio" className={!currentModelConfig?.supportsAspectRatio ? 'text-gray-500' : ''}>نسبت تصویر:</label>
+            <select id="aspectRatio" value={aspectRatio} onChange={e => setAspectRatio(e.target.value)} className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled={isLoading || !currentModelConfig?.supportsAspectRatio}>
                 {aspectRatios.map(ar => <option key={ar} value={ar}>{ar}</option>)}
             </select>
           </div>
-          <ThinkingModeToggle mode={mode} setMode={setMode} disabled={isLoading} />
-           <button type="submit" className="mr-auto px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isLoading}>
-            {isLoading ? 'در حال تولید...' : 'تولید کن'}
-          </button>
         </div>
+
+        {currentModelConfig?.requiresApiKey && !isCheckingApiKey && !hasApiKey && (
+             <div className="p-4 bg-yellow-900/50 text-yellow-200 rounded-lg border border-yellow-700/50 flex flex-col sm:flex-row items-center gap-4">
+                <div className="flex-1">
+                    <h4 className="font-bold">نیاز به کلید API</h4>
+                    <p className="text-sm mt-1">
+                        برای استفاده از این مدل ({currentModelConfig.name})، نیاز به انتخاب یک کلید API دارید که صورت‌حساب (billing) برای آن فعال شده باشد.
+                        <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline ml-1">اطلاعات بیشتر</a>
+                    </p>
+                </div>
+                <button type="button" onClick={handleSelectKey} className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 transition font-semibold flex-shrink-0">
+                    انتخاب کلید API
+                </button>
+            </div>
+        )}
+
+        <button type="submit" className="mr-auto px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isLoading || (currentModelConfig?.requiresApiKey && !hasApiKey)}>
+            {isLoading ? 'در حال تولید...' : 'تولید کن'}
+        </button>
         {error && <p className="text-red-400 mt-2">{error}</p>}
       </form>
 

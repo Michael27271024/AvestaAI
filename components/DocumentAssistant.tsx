@@ -1,7 +1,8 @@
+
+
 import React, { useState } from 'react';
 import type { FC, FormEvent, ChangeEvent } from 'react';
 import { geminiService } from '../services/geminiService';
-import { ThinkingModeToggle, ThinkingMode } from './ThinkingModeToggle';
 import { InfoIcon } from './icons/FeatureIcons';
 
 export const DocumentAssistant: FC = () => {
@@ -9,7 +10,6 @@ export const DocumentAssistant: FC = () => {
   const [instruction, setInstruction] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState<ThinkingMode>('creative');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -21,7 +21,7 @@ export const DocumentAssistant: FC = () => {
     setIsLoading(true);
     setError('');
     try {
-        const response = await geminiService.assistDocument(documentContent, instruction, mode);
+        const response = await geminiService.assistDocument(documentContent, instruction);
         if (response.toLowerCase().includes('خطا')) {
             setError(response);
         } else {
@@ -85,7 +85,6 @@ export const DocumentAssistant: FC = () => {
             <div className="flex items-center gap-4 w-full sm:w-auto">
                 <input type="file" id="file-upload" className="hidden" onChange={handleFileChange} accept=".txt,.md,.csv,text/plain,text/markdown,text/csv" />
                 <label htmlFor="file-upload" className="cursor-pointer px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition">بارگذاری فایل</label>
-                <ThinkingModeToggle mode={mode} setMode={setMode} disabled={isLoading} />
                 <button type="submit" className="px-6 py-3 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isLoading || !instruction}>
                 {isLoading ? '...' : 'اجرا کن'}
                 </button>

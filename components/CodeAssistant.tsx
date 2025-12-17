@@ -1,7 +1,8 @@
+
+
 import React, { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { geminiService } from '../services/geminiService';
-import { ThinkingModeToggle, ThinkingMode } from './ThinkingModeToggle';
 import { InfoIcon } from './icons/FeatureIcons';
 
 export const CodeAssistant: FC = () => {
@@ -10,7 +11,6 @@ export const CodeAssistant: FC = () => {
   const [result, setResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState<ThinkingMode>('creative');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -23,7 +23,7 @@ export const CodeAssistant: FC = () => {
     setError('');
     setResult('');
     
-    const response = await geminiService.assistCode(inputCode, instruction, mode);
+    const response = await geminiService.assistCode(inputCode, instruction);
     if (response.toLowerCase().includes('خطا')) {
         setError(response);
     } else {
@@ -79,7 +79,6 @@ export const CodeAssistant: FC = () => {
             disabled={isLoading}
             />
             <div className="flex items-center gap-4 w-full sm:w-auto">
-                <ThinkingModeToggle mode={mode} setMode={setMode} disabled={isLoading} />
                 <button type="submit" className="px-6 py-3 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isLoading || !instruction || !inputCode}>
                 {isLoading ? '...' : 'اجرا کن'}
                 </button>

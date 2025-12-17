@@ -6,6 +6,8 @@ import { Chat } from './components/Chat';
 import { TextGenerator } from './components/TextGenerator';
 import { ImageGenerator } from './components/ImageGenerator';
 import { ImageEditor } from './components/ImageEditor';
+import { VideoGenerator } from './components/VideoGenerator';
+import { ImageToVideoGenerator } from './components/ImageToVideoGenerator';
 import { GroundedSearch } from './components/GroundedSearch';
 import { DocumentAssistant } from './components/DocumentAssistant';
 import { VoiceChat } from './components/VoiceChat';
@@ -13,6 +15,10 @@ import { WebsiteBuilder } from './components/WebsiteBuilder';
 import { GameBuilder } from './components/GameBuilder';
 import { AndroidAppBuilder } from './components/AndroidAppBuilder';
 import { CodeAssistant } from './components/CodeAssistant';
+import { AudioGenerator } from './components/AudioGenerator';
+import { SongwriterAssistant } from './components/SongwriterAssistant';
+import { SongIdentifier } from './components/SongIdentifier';
+import { SongSearch } from './components/SongSearch';
 import type { ActiveView } from './types';
 import { MenuIcon } from './components/icons/FeatureIcons';
 
@@ -41,6 +47,10 @@ const App: FC = () => {
         return <ImageGenerator />;
       case 'image-edit':
         return <ImageEditor />;
+      case 'video-gen':
+        return <VideoGenerator />;
+      case 'image-to-video':
+        return <ImageToVideoGenerator />;
       case 'search':
         return <GroundedSearch />;
       case 'website-builder':
@@ -51,6 +61,14 @@ const App: FC = () => {
         return <AndroidAppBuilder />;
       case 'code-assistant':
         return <CodeAssistant />;
+      case 'songwriter-assistant':
+        return <SongwriterAssistant />;
+      case 'audio-gen':
+        return <AudioGenerator />;
+      case 'song-identifier':
+        return <SongIdentifier />;
+      case 'song-search':
+        return <SongSearch />;
       default:
         return <Welcome setActiveView={handleSetActiveView} />;
     }
