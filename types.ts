@@ -10,6 +10,14 @@ export interface ChatMessage {
   }[];
 }
 
+export interface ChatSessionRecord {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  model: TextGenerationModel;
+  createdAt: number;
+}
+
 export interface GroundingSource {
   web: {
     uri: string;
