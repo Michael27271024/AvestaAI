@@ -119,6 +119,39 @@ export const Chat: FC = () => {
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
 
+  // Load from Storage & handle initial message from Home
+  useEffect(() => {
+    const saved = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    let initialSessions: ChatSessionRecord[] = [];
+    if (saved) {
+      try {
+        initialSessions = JSON.parse(saved);
+        setSessions(initialSessions);
+      } catch (e) { console.error(e); }
+    }
+
+    const initialMsg = sessionStorage.getItem('initialChatMessage');
+    if (initialMsg) {
+      sessionStorage.removeItem('initialChatMessage');
+      // Set small delay to ensure component is ready
+      setTimeout(() => {
+          sendMessage(initialMsg);
+      }, 100);
+    } else if (initialSessions.length > 0) {
+      setActiveSessionId(initialSessions[0].id);
+    }
+  }, []);
+
+  // Sync to Storage
+  useEffect(() => {
+    if (sessions.length > 0) {
+      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+    } else {
+      localStorage.removeItem(SESSIONS_STORAGE_KEY);
+    }
+  }, [sessions]);
+
+  // Handle sidebar responsive state
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) setShowHistory(true);
@@ -129,25 +162,7 @@ export const Chat: FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    const saved = localStorage.getItem(SESSIONS_STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setSessions(parsed);
-        if (parsed.length > 0) setActiveSessionId(parsed[0].id);
-      } catch (e) { console.error(e); }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (sessions.length > 0) {
-      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
-    } else {
-      localStorage.removeItem(SESSIONS_STORAGE_KEY);
-    }
-  }, [sessions]);
-
+  // Initialize Gemini session when active session changes
   useEffect(() => {
     if (activeSession) {
       chatSessionRef.current = geminiService.createChatSession(activeSession.model, activeSession.messages);
@@ -190,28 +205,15 @@ export const Chat: FC = () => {
       }
   };
 
-  const updateActiveSession = (newMessages: ChatMessage[]) => {
-    setSessions(prev => prev.map(s => {
-      if (s.id === activeSessionId) {
-        let newTitle = s.title;
-        if ((s.title === 'گفتگوی جدید' || s.messages.length === 0) && newMessages.length > 0) {
-            newTitle = newMessages[0].text.slice(0, 30) + (newMessages[0].text.length > 30 ? '...' : '');
-        }
-        return { ...s, messages: newMessages, title: newTitle };
-      }
-      return s;
-    }));
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
     if (selected) {
         const newFiles = Array.from(selected);
         setFiles(prev => [...prev, ...newFiles]);
-        const newPreviews = await Promise.all(newFiles.map(async f => {
+        const newPreviews = await Promise.all(newFiles.map(async (f: File) => {
             const url = await fileToDataURL(f);
             const type = f.type.startsWith('video/') ? 'video' : f.type.startsWith('audio/') ? 'audio' : 'image';
-            return { url, type: type as any };
+            return { url, type: type as 'image' | 'video' | 'audio' };
         }));
         setFilePreviews(prev => [...prev, ...newPreviews]);
     }
@@ -220,44 +222,70 @@ export const Chat: FC = () => {
   const sendMessage = useCallback(async (text: string, attached: File[] = []) => {
       if (isLoading || (!text.trim() && attached.length === 0)) return;
 
+      setIsLoading(true);
       let currentId = activeSessionId;
+      
+      // If no session exists, create one immediately
       if (!currentId) {
-          const newId = crypto.randomUUID();
-          const newS: ChatSessionRecord = { id: newId, title: text.slice(0, 30), messages: [], model: 'gemini-2.5-flash', createdAt: Date.now() };
+          currentId = crypto.randomUUID();
+          const newS: ChatSessionRecord = { 
+              id: currentId, 
+              title: text.slice(0, 30), 
+              messages: [], 
+              model: 'gemini-2.5-flash', 
+              createdAt: Date.now() 
+          };
           setSessions(prev => [newS, ...prev]);
-          setActiveSessionId(newId);
-          currentId = newId;
+          setActiveSessionId(currentId);
       }
 
-      // Fix: Use 'any' type for the mapping function parameter to resolve potential 'unknown' inference issue which causes compilation errors.
-      const previews = await Promise.all(attached.map(async (f: any) => ({
+      const previews = await Promise.all(attached.map(async (f: File) => ({
           url: await fileToDataURL(f),
           type: (f.type.startsWith('video/') ? 'video' : f.type.startsWith('audio/') ? 'audio' : 'image') as 'image' | 'video' | 'audio'
       })));
 
       const userMsg: ChatMessage = { sender: 'user', text, mediaPreviews: previews.length > 0 ? previews : undefined };
-      const currentMessages = activeSession ? [...activeSession.messages, userMsg] : [userMsg];
-      updateActiveSession(currentMessages);
+      
+      // Update local message list for immediate rendering
+      setSessions(prev => prev.map(s => {
+          if (s.id === currentId) {
+              const newTitle = (s.title === 'گفتگوی جدید' || s.messages.length === 0) 
+                  ? text.slice(0, 30) + (text.length > 30 ? '...' : '')
+                  : s.title;
+              return { ...s, messages: [...s.messages, userMsg], title: newTitle };
+          }
+          return s;
+      }));
 
       setInput('');
       setFiles([]);
       setFilePreviews([]);
-      setIsLoading(true);
 
       try {
-        if (!chatSessionRef.current) {
-            chatSessionRef.current = geminiService.createChatSession(activeSession?.model || 'gemini-2.5-flash', activeSession?.messages || []);
+        const targetSession = sessions.find(s => s.id === currentId);
+        const currentModel = targetSession?.model || 'gemini-2.5-flash';
+        const currentHistory = targetSession?.messages || [];
+
+        // Create or get session
+        if (!chatSessionRef.current || activeSessionId !== currentId) {
+            chatSessionRef.current = geminiService.createChatSession(currentModel, currentHistory);
         }
-        // Fix: Use 'any' type for the mapping function parameter to avoid potential type issues during data extraction.
-        const fileParts = await Promise.all(attached.map(async (f: any) => ({
+        
+        const fileParts = await Promise.all(attached.map(async (f: File) => ({
             inlineData: { mimeType: f.type, data: await fileToBase64(f) }
         })));
+        
         const payload = text.trim() ? (fileParts.length > 0 ? [{ text }, ...fileParts] : text) : fileParts;
         const stream = await chatSessionRef.current.sendMessageStream({ message: payload });
         
         let aiText = '';
         const aiMsg: ChatMessage = { sender: 'ai', text: '' };
-        updateActiveSession([...currentMessages, aiMsg]);
+        
+        // Add placeholder AI message
+        setSessions(prev => prev.map(s => {
+            if (s.id === currentId) return { ...s, messages: [...s.messages, aiMsg] };
+            return s;
+        }));
 
         for await (const chunk of stream) {
             aiText += chunk.text;
@@ -272,11 +300,14 @@ export const Chat: FC = () => {
         }
       } catch (err) {
         console.error(err);
-        updateActiveSession([...currentMessages, { sender: 'ai', text: "متاسفانه مشکلی در ارتباط با سرور پیش آمد." }]);
+        setSessions(prev => prev.map(s => {
+            if (s.id === currentId) return { ...s, messages: [...s.messages, { sender: 'ai', text: "متاسفانه مشکلی در ارتباط با سرور پیش آمد." }] };
+            return s;
+        }));
       } finally {
         setIsLoading(false);
       }
-  }, [isLoading, activeSessionId, activeSession]);
+  }, [isLoading, activeSessionId, sessions]);
 
   return (
     <div className="flex h-full overflow-hidden bg-gray-950/20 rounded-xl relative">
@@ -284,6 +315,7 @@ export const Chat: FC = () => {
         className={`fixed inset-0 bg-black/60 z-40 lg:hidden transition-opacity duration-300 ${showHistory ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} 
         onClick={() => setShowHistory(false)}
       />
+      
       <div className={`absolute lg:relative z-50 lg:z-0 top-0 right-0 h-full bg-gray-900 border-l border-gray-800 transition-all duration-300 shadow-2xl lg:shadow-none overflow-hidden flex flex-col ${showHistory ? 'w-64 translate-x-0' : 'w-0 translate-x-full lg:translate-x-0'}`}>
         <div className="p-3 border-b border-gray-800">
             <button onClick={createNewChat} className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition text-sm font-bold shadow-lg shadow-indigo-500/10">
@@ -331,8 +363,8 @@ export const Chat: FC = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6 scroll-smooth">
-            {!activeSessionId && (
-                <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-3 px-6 text-center">
+            {!activeSessionId && sessions.length === 0 && (
+                <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-3 px-6 text-center animate-fade-in">
                     <div className="w-14 h-14 bg-indigo-600/10 rounded-full flex items-center justify-center animate-bounce">
                         <ChatIcon className="w-7 h-7 text-indigo-500" />
                     </div>

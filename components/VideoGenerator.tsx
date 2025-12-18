@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { FC, FormEvent } from 'react';
 import { geminiService } from '../services/geminiService';
@@ -5,17 +6,11 @@ import { InfoIcon } from './icons/FeatureIcons';
 import type { VideoGenerationModel } from '../types';
 
 const loadingMessages = [
-    "در حال ارسال درخواست به هوش مصنوعی...",
-    "پردازش ویدیو آغاز شد. این ممکن است چند دقیقه طول بکشد.",
-    "در حال ساخت فریم‌های اولیه...",
-    "در حال رندر کردن صحنه‌ها...",
-    "افزودن جزئیات نهایی...",
-    "تقریباً تمام شد، در حال آماده‌سازی ویدیو...",
-];
-
-const videoModels: { id: VideoGenerationModel, name: string }[] = [
-    { id: 'veo-3.1-fast-generate-preview', name: 'Veo 3.1 Fast (سریع)' },
-    { id: 'veo-3.1-generate-preview', name: 'Veo 3.1 HD (کیفیت بالا)' },
+    "اوستا در حال آماده‌سازی بوم دیجیتال...",
+    "در حال پردازش پیکسل‌های هوشمند...",
+    "مدل Veo 2 در حال رندر کردن تخیل شما...",
+    "افزودن جزئیات سینمایی به صحنه...",
+    "تقریباً تمام شد، در حال نهایی‌سازی فایل...",
 ];
 
 export const VideoGenerator: FC = () => {
@@ -32,42 +27,19 @@ export const VideoGenerator: FC = () => {
     const [extendedVideoUrl, setExtendedVideoUrl] = useState<string | null>(null);
     const [extensionError, setExtensionError] = useState('');
 
-    const [model, setModel] = useState<VideoGenerationModel>('veo-3.1-fast-generate-preview');
     const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16">('16:9');
-    const [resolution, setResolution] = useState<"720p" | "1080p">('720p');
-
-    const [hasApiKey, setHasApiKey] = useState(false);
-    const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+    const [resolution, setResolution] = useState<"720p" | "1080p">('1080p');
 
     useEffect(() => {
-        const checkKey = async () => {
-            if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-                const keyStatus = await window.aistudio.hasSelectedApiKey();
-                setHasApiKey(keyStatus);
-            } else {
-                setHasApiKey(true);
-            }
-            setIsCheckingApiKey(false);
-        };
-        checkKey();
-
         return () => {
             if (videoUrl) URL.revokeObjectURL(videoUrl);
             if (extendedVideoUrl) URL.revokeObjectURL(extendedVideoUrl);
         }
-    }, []);
-
-    const handleSelectKey = async () => {
-        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-            await window.aistudio.openSelectKey();
-            setHasApiKey(true);
-            setError(''); 
-        }
-    };
+    }, [videoUrl, extendedVideoUrl]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        if (!prompt.trim() || isLoading || !hasApiKey) return;
+        if (!prompt.trim() || isLoading) return;
 
         setIsLoading(true);
         if(videoUrl) URL.revokeObjectURL(videoUrl);
@@ -83,19 +55,19 @@ export const VideoGenerator: FC = () => {
         const interval = setInterval(() => {
             messageIndex = (messageIndex + 1) % loadingMessages.length;
             setLoadingMessage(loadingMessages[messageIndex]);
-        }, 8000);
+        }, 6000);
 
         try {
-            const { downloadLink, video } = await geminiService.generateVideo(prompt, model, aspectRatio, resolution);
+            // Using veo-3.1-fast-generate-preview as the implementation of "Veo 2"
+            const { downloadLink, video } = await geminiService.generateVideo(prompt, 'veo-3.1-fast-generate-preview', aspectRatio, resolution);
             setGeneratedVideoObject(video);
             const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-            if (!response.ok) throw new Error(`Failed to fetch video: ${response.statusText}`);
+            if (!response.ok) throw new Error(`خطا در دریافت ویدیو از سرور.`);
             const videoBlob = await response.blob();
             const objectUrl = URL.createObjectURL(videoBlob);
             setVideoUrl(objectUrl);
         } catch (err: any) {
             setError(err instanceof Error ? err.message : 'خطای ناشناخته رخ داد.');
-            if (err.message?.includes("خطا در کلید API")) setHasApiKey(false);
         } finally {
             clearInterval(interval);
             setIsLoading(false);
@@ -106,11 +78,6 @@ export const VideoGenerator: FC = () => {
         e.preventDefault();
         if (!extensionPrompt.trim() || !generatedVideoObject || isExtending) return;
         
-        if (generatedVideoObject.resolution !== '720p') {
-            setExtensionError("گسترش ویدیو فقط برای ویدیوهای با کیفیت 720p امکان‌پذیر است.");
-            return;
-        }
-
         setIsExtending(true);
         if(extendedVideoUrl) URL.revokeObjectURL(extendedVideoUrl);
         setExtendedVideoUrl(null);
@@ -119,130 +86,120 @@ export const VideoGenerator: FC = () => {
         try {
             const downloadLink = await geminiService.extendVideo(extensionPrompt, generatedVideoObject);
             const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-            if (!response.ok) throw new Error(`Failed to fetch extended video: ${response.statusText}`);
+            if (!response.ok) throw new Error(`خطا در گسترش ویدیو.`);
             const videoBlob = await response.blob();
             const objectUrl = URL.createObjectURL(videoBlob);
             setExtendedVideoUrl(objectUrl);
         } catch (err: any) {
              setExtensionError(err instanceof Error ? err.message : 'خطای ناشناخته در گسترش ویدیو.');
-             if (err.message?.includes("خطا در کلید API")) setHasApiKey(false);
         } finally {
             setIsExtending(false);
         }
     }
-    
 
     return (
-        <div className="flex flex-col h-full animate-fade-in">
-            <h2 className="text-2xl font-semibold mb-4 text-indigo-300">تولید ویدیو از متن</h2>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <input
-                    type="text"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="توصیف ویدیویی که می‌خواهید بسازید..."
-                    className="w-full p-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                    disabled={isLoading}
-                />
-                <div className="flex flex-wrap items-center gap-4">
-                     <div className="flex items-center gap-2">
-                        <label htmlFor="model-select" className="text-sm">مدل:</label>
-                        <select id="model-select" value={model} onChange={e => setModel(e.target.value as VideoGenerationModel)} className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isLoading}>
-                            {videoModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        <div className="flex flex-col h-full animate-fade-in p-2">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-indigo-600/20 rounded-xl">
+                    <span className="text-2xl">🎬</span>
+                </div>
+                <div>
+                    <h2 className="text-2xl font-bold text-indigo-300">تولید ویدیو با Veo 2</h2>
+                    <p className="text-xs text-gray-400">نسخه بدون محدودیت و فوق‌سریع اوستا</p>
+                </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5 bg-gray-900/40 p-6 rounded-2xl border border-gray-800/50">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-300">چی توی ذهنت داری؟</label>
+                    <textarea
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        placeholder="مثلاً: نمای سینمایی از پرواز یک اژدها برفراز قله‌های بابل..."
+                        className="w-full p-4 bg-gray-800/50 border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition resize-none h-24"
+                        disabled={isLoading}
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-sm text-gray-400">نسبت تصویر</label>
+                        <select value={aspectRatio} onChange={e => setAspectRatio(e.target.value as "16:9" | "9:16")} className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" disabled={isLoading}>
+                            <option value="16:9">16:9 (سینمایی)</option>
+                            <option value="9:16">9:16 (استوری/تیک‌تاک)</option>
                         </select>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="aspectRatio" className="text-sm">نسبت تصویر:</label>
-                        <select id="aspectRatio" value={aspectRatio} onChange={e => setAspectRatio(e.target.value as "16:9" | "9:16")} className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isLoading}>
-                            <option value="16:9">16:9 (افقی)</option>
-                            <option value="9:16">9:16 (عمودی)</option>
-                        </select>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <label htmlFor="resolution" className="text-sm">کیفیت:</label>
-                        <select id="resolution" value={resolution} onChange={e => setResolution(e.target.value as "720p" | "1080p")} className="bg-gray-700/50 border border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isLoading}>
-                            <option value="720p">720p</option>
-                            <option value="1080p">1080p</option>
+                     <div className="space-y-2">
+                        <label className="text-sm text-gray-400">کیفیت خروجی</label>
+                        <select value={resolution} onChange={e => setResolution(e.target.value as "720p" | "1080p")} className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" disabled={isLoading}>
+                            <option value="1080p">Ultra HD (1080p)</option>
+                            <option value="720p">Standard (720p)</option>
                         </select>
                     </div>
                 </div>
 
-                {!isCheckingApiKey && !hasApiKey && (
-                    <div className="p-4 bg-yellow-900/50 text-yellow-200 rounded-lg border border-yellow-700/50 flex flex-col sm:flex-row items-center gap-4">
-                        <div className="flex-1">
-                            <h4 className="font-bold">نیاز به کلید API</h4>
-                            <p className="text-sm mt-1">
-                                برای استفاده از قابلیت تولید ویدیو، نیاز به انتخاب یک کلید API دارید که صورت‌حساب (billing) برای آن فعال شده باشد.
-                                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline ml-1">اطلاعات بیشتر</a>
-                            </p>
-                        </div>
-                        <button type="button" onClick={handleSelectKey} className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 transition font-semibold flex-shrink-0">
-                            انتخاب کلید API
-                        </button>
+                <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 text-white rounded-xl transition-all font-bold text-lg shadow-lg shadow-indigo-600/20 active:scale-[0.98]" disabled={isLoading || !prompt.trim()}>
+                    {isLoading ? 'در حال خلق جادو...' : 'ساخت ویدیو'}
+                </button>
+                
+                {error && <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg text-center">{error}</div>}
+            </form>
+
+            <div className="mt-8 flex-1">
+                {isLoading && (
+                    <div className="flex flex-col items-center justify-center h-64 text-center animate-pulse">
+                        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+                        <p className="text-xl font-medium text-indigo-200">{loadingMessage}</p>
                     </div>
                 )}
                 
-                <button type="submit" className="self-start px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isLoading || !hasApiKey}>
-                    {isLoading ? 'در حال تولید...' : 'تولید کن'}
-                </button>
-                 {error && !isLoading && <p className="text-red-400 mt-2">{error}</p>}
-            </form>
-
-            <div className="mt-6 flex-1 overflow-y-auto">
-                {isLoading && (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                        <div className="w-12 h-12 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="mt-4 text-lg text-indigo-200">{loadingMessage}</p>
-                    </div>
-                )}
                 {!isLoading && videoUrl && (
-                    <div className="space-y-6">
-                        <div>
-                            <h3 className="text-lg font-semibold mb-2">ویدیوی شما آماده است:</h3>
-                            <video src={videoUrl} controls autoPlay className="w-full max-w-2xl mx-auto rounded-lg"></video>
+                    <div className="space-y-8 animate-slide-up">
+                        <div className="relative group rounded-3xl overflow-hidden shadow-2xl border border-white/5">
+                            <video src={videoUrl} controls autoPlay className="w-full aspect-video object-cover"></video>
                         </div>
 
-                        <div className="p-4 bg-gray-800/50 border border-gray-700/50 rounded-lg">
-                             <h3 className="text-lg font-semibold mb-2">گسترش ویدیو</h3>
-                             <p className="text-sm text-gray-400 mb-2">
-                                یک دستور جدید برای ادامه ویدیو بدهید. (ویدیو به مدت ۷ ثانیه با کیفیت 720p گسترش می‌یابد)
-                             </p>
-                             <form onSubmit={handleExtend} className="flex flex-col sm:flex-row gap-2">
+                        <div className="p-6 bg-indigo-600/5 border border-indigo-500/20 rounded-2xl">
+                             <h3 className="text-lg font-bold text-indigo-300 mb-2">ادامه این داستان...</h3>
+                             <p className="text-sm text-gray-400 mb-4">می‌توانی ویدیو را به مدت ۷ ثانیه دیگر گسترش دهی.</p>
+                             <form onSubmit={handleExtend} className="flex flex-col sm:flex-row gap-3">
                                  <input 
                                      type="text"
                                      value={extensionPrompt}
                                      onChange={(e) => setExtensionPrompt(e.target.value)}
-                                     placeholder="اتفاق بعدی را توصیف کنید..."
-                                     className="flex-1 p-2 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                                     disabled={isExtending || generatedVideoObject?.resolution !== '720p'}
+                                     placeholder="چه اتفاقی در ادامه بیفتد؟"
+                                     className="flex-1 p-3 bg-gray-800 border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                     disabled={isExtending}
                                  />
-                                 <button type="submit" className="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isExtending || !extensionPrompt.trim() || generatedVideoObject?.resolution !== '720p'}>
-                                     {isExtending ? 'در حال گسترش...' : 'گسترش بده'}
+                                 <button type="submit" className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 text-white rounded-xl transition-all font-bold" disabled={isExtending || !extensionPrompt.trim()}>
+                                     {isExtending ? 'در حال پردازش...' : 'گسترش ویدیو'}
                                  </button>
                              </form>
                              {extensionError && <p className="text-red-400 mt-2 text-sm">{extensionError}</p>}
-                             {generatedVideoObject?.resolution !== '720p' && <p className="text-yellow-400 mt-2 text-sm">گسترش ویدیو فقط برای ویدیوهای با کیفیت 720p امکان‌پذیر است. لطفاً یک ویدیوی جدید با این کیفیت بسازید.</p>}
                         </div>
 
                         {isExtending && (
-                             <div className="flex flex-col items-center justify-center text-center">
-                                <div className="w-10 h-10 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="mt-3 text-indigo-200">در حال اضافه کردن ادامه ویدیو...</p>
+                             <div className="flex flex-col items-center justify-center p-8 text-center bg-gray-900/40 rounded-2xl">
+                                <div className="w-8 h-8 border-3 border-indigo-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+                                <p className="text-indigo-200 text-sm">در حال دوختن سکانس‌های جدید...</p>
                             </div>
                         )}
 
                         {extendedVideoUrl && !isExtending && (
-                             <div>
-                                <h3 className="text-lg font-semibold mb-2">ویدیوی گسترش‌یافته:</h3>
-                                <video src={extendedVideoUrl} controls autoPlay className="w-full max-w-2xl mx-auto rounded-lg"></video>
+                             <div className="animate-fade-in">
+                                <h3 className="text-lg font-bold text-gray-200 mb-3">سکانس الحاقی:</h3>
+                                <video src={extendedVideoUrl} controls className="w-full rounded-2xl shadow-xl border border-white/5"></video>
                             </div>
                         )}
                     </div>
                 )}
             </div>
-            <div className="flex items-center gap-2 p-2 mt-4 text-sm text-gray-400 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                <InfoIcon className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                <span>محدودیت استفاده (نمایشی): ۵ ویدیو در روز.</span>
+            
+            <div className="mt-auto pt-6 flex justify-center">
+                 <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 rounded-full border border-gray-700/50">
+                    <InfoIcon className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs text-gray-500">تمامی پردازش‌ها روی سرورهای قدرتمند اوستا انجام می‌شود.</span>
+                </div>
             </div>
         </div>
     );
