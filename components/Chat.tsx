@@ -6,7 +6,7 @@ import { geminiService, fileToBase64, fileToDataURL } from '../services/geminiSe
 import type { Chat as ChatSession } from '@google/genai';
 import { SendIcon, PaperclipIcon, XIcon, CopyIcon, CheckIcon, TrashIcon, ChatIcon, HomeIcon, EditIcon, MenuIcon } from './icons/FeatureIcons';
 
-const SESSIONS_STORAGE_KEY = 'avesta_chat_sessions_v4';
+const SESSIONS_STORAGE_KEY = 'avesta_chat_sessions_v5';
 
 const LoadingIndicator: FC = () => (
   <div className="flex items-center gap-1.5">
@@ -151,7 +151,6 @@ export const Chat: FC = () => {
     }
   }, [sessions]);
 
-  // Fix: use removeEventListener instead of removeResizeListener
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) setShowHistory(true);
@@ -162,7 +161,6 @@ export const Chat: FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // وابستگی به مدل اضافه شد تا با تغییر مدل نشست چت ریست شود
   useEffect(() => {
     if (activeSession) {
       chatSessionRef.current = geminiService.createChatSession(activeSession.model, activeSession.messages);
@@ -225,11 +223,12 @@ export const Chat: FC = () => {
       setIsLoading(true);
       let currentId = activeSessionId;
       
+      // اگر نشستی فعال نیست، یکی بساز
       if (!currentId) {
           currentId = crypto.randomUUID();
           const newS: ChatSessionRecord = { 
               id: currentId, 
-              title: text.slice(0, 30), 
+              title: text.slice(0, 30) || 'بدون عنوان', 
               messages: [], 
               model: 'gemini-3-flash-preview', 
               createdAt: Date.now() 
@@ -245,39 +244,42 @@ export const Chat: FC = () => {
 
       const userMsg: ChatMessage = { sender: 'user', text, mediaPreviews: previews.length > 0 ? previews : undefined };
       
+      // اضافه کردن پیام کاربر به استیت
       setSessions(prev => prev.map(s => {
           if (s.id === currentId) {
               const newTitle = (s.title === 'گفتگوی جدید' || s.messages.length === 0) 
                   ? text.slice(0, 30) + (text.length > 30 ? '...' : '')
                   : s.title;
-              return { ...s, messages: [...s.messages, userMsg], title: newTitle };
+              return { ...s, messages: [...s.messages, userMsg], title: newTitle || s.title };
           }
           return s;
       }));
 
+      // پاک کردن ورودی‌ها
       setInput('');
       setFiles([]);
       setFilePreviews([]);
 
       try {
+        // بازسازی نشست با تاریخچه (بدون پیام آخری که الان فرستادیم)
+        // این کار باعث می‌شود نشست همیشه با مدل درست و کلید درست کار کند
         const targetSession = sessions.find(s => s.id === currentId);
-        const currentModel = targetSession?.model || 'gemini-3-flash-preview';
-        const currentHistory = targetSession?.messages || [];
-
-        if (!chatSessionRef.current || activeSessionId !== currentId) {
-            chatSessionRef.current = geminiService.createChatSession(currentModel, currentHistory);
-        }
+        const modelToUse = targetSession?.model || 'gemini-3-flash-preview';
+        const historyToUse = targetSession?.messages || [];
+        
+        const session = geminiService.createChatSession(modelToUse, historyToUse);
         
         const fileParts = await Promise.all(attached.map(async (f: File) => ({
             inlineData: { mimeType: f.type, data: await fileToBase64(f) }
         })));
         
         const payload = text.trim() ? (fileParts.length > 0 ? [{ text }, ...fileParts] : text) : fileParts;
-        const stream = await chatSessionRef.current.sendMessageStream({ message: payload });
+        const stream = await session.sendMessageStream({ message: payload });
         
         let aiText = '';
         const aiMsg: ChatMessage = { sender: 'ai', text: '' };
         
+        // ایجاد یک جایگاه برای پیام هوش مصنوعی
         setSessions(prev => prev.map(s => {
             if (s.id === currentId) return { ...s, messages: [...s.messages, aiMsg] };
             return s;

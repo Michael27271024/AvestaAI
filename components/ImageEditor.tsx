@@ -30,9 +30,10 @@ export const ImageEditor: FC = () => {
     const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (files && files.length > 0) {
-            const newFiles = Array.from(files);
+            // Fix: Explicitly type newFiles as File[] to ensure the map parameter 'f' is correctly typed for URL.createObjectURL.
+            const newFiles: File[] = Array.from(files);
             setOriginalImages(prev => [...prev, ...newFiles]);
-            setOriginalImagePreviews(prev => [...prev, ...newFiles.map(f => URL.createObjectURL(f))]);
+            setOriginalImagePreviews(prev => [...prev, ...newFiles.map((f: File) => URL.createObjectURL(f))]);
             setError('');
         }
     };
