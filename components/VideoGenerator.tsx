@@ -13,6 +13,15 @@ const loadingMessages = [
     "تقریباً تمام شد، در حال نهایی‌سازی فایل...",
 ];
 
+const directorModels = [
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro' },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+    { id: 'gemini-2.0-pro', name: 'Gemini 2.0 Pro' },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+];
+
 export const VideoGenerator: FC = () => {
     const [prompt, setPrompt] = useState('');
     const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -20,8 +29,8 @@ export const VideoGenerator: FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [loadingMessage, setLoadingMessage] = useState('');
+    const [directorModel, setDirectorModel] = useState('gemini-3-pro-preview');
     
-    // Extension state
     const [isExtending, setIsExtending] = useState(false);
     const [extensionPrompt, setExtensionPrompt] = useState('');
     const [extendedVideoUrl, setExtendedVideoUrl] = useState<string | null>(null);
@@ -58,8 +67,7 @@ export const VideoGenerator: FC = () => {
         }, 6000);
 
         try {
-            // Using veo-3.1-fast-generate-preview as the implementation of "Veo 2"
-            const { downloadLink, video } = await geminiService.generateVideo(prompt, 'veo-3.1-fast-generate-preview', aspectRatio, resolution);
+            const { downloadLink, video } = await geminiService.generateVideo(prompt, directorModel, aspectRatio, resolution);
             setGeneratedVideoObject(video);
             const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
             if (!response.ok) throw new Error(`خطا در دریافت ویدیو از سرور.`);
@@ -121,7 +129,13 @@ export const VideoGenerator: FC = () => {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                     <div className="space-y-2">
+                        <label className="text-sm text-gray-400">مغز متفکر (کارگردان)</label>
+                        <select value={directorModel} onChange={e => setDirectorModel(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" disabled={isLoading}>
+                            {directorModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        </select>
+                    </div>
                     <div className="space-y-2">
                         <label className="text-sm text-gray-400">نسبت تصویر</label>
                         <select value={aspectRatio} onChange={e => setAspectRatio(e.target.value as "16:9" | "9:16")} className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" disabled={isLoading}>

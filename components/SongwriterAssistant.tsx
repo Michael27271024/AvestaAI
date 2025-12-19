@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { geminiService } from '../services/geminiService';
@@ -18,7 +17,8 @@ export const SongwriterAssistant: FC = () => {
     setIsLoading(true);
     setError('');
     setResult('');
-    const response = await geminiService.generateText(prompt);
+    // Fix: generateText requires a model name as the second argument
+    const response = await geminiService.generateText(prompt, 'gemini-3-flash-preview');
     // A simple check to see if the response is an error message we generated
     if (response.toLowerCase().includes('خطا')) {
         setError(response);

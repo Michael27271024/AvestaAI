@@ -1,13 +1,17 @@
+
 import React, { useState, useEffect } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import { geminiService, fileToBase64 } from '../services/geminiService';
-import { InfoIcon, XIcon, DownloadIcon } from './icons/FeatureIcons';
+import { InfoIcon, XIcon, DownloadIcon, EditIcon } from './icons/FeatureIcons';
 import type { ImageEditingModel } from '../types';
 
-const imageEditModels: { id: ImageEditingModel | string, name: string, disabled?: boolean }[] = [
-    { id: 'gemini-2.5-flash-image', name: 'Gemini Flash / Nano Banana' },
-    { id: 'imagen-4.0-generate-001', name: 'Imagen 4 (فقط تولید)', disabled: true },
-    { id: 'imagen-3.0-generate-001', name: 'Imagen 3 (فقط تولید)', disabled: true },
+const imageEditModels: { id: ImageEditingModel, name: string }[] = [
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro' },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash' },
+    { id: 'gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro' },
+    { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash' },
+    { id: 'gemini-2.0-pro-preview', name: 'Gemini 2.0 Pro' },
+    { id: 'gemini-2.0-flash-preview', name: 'Gemini 2.0 Flash' },
 ];
 
 export const ImageEditor: FC = () => {
@@ -17,14 +21,10 @@ export const ImageEditor: FC = () => {
     const [generatedResult, setGeneratedResult] = useState<{ text: string | null, image: string | null } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-    const [model, setModel] = useState<ImageEditingModel>('gemini-2.5-flash-image');
+    const [model, setModel] = useState<ImageEditingModel>('gemini-3-flash-preview');
 
     useEffect(() => {
-        // Cleanup function to revoke object URLs
-        return () => {
-            originalImagePreviews.forEach(url => URL.revokeObjectURL(url));
-        };
+        return () => originalImagePreviews.forEach(url => URL.revokeObjectURL(url));
     }, [originalImagePreviews]);
 
     const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -32,196 +32,129 @@ export const ImageEditor: FC = () => {
         if (files && files.length > 0) {
             const newFiles = Array.from(files);
             setOriginalImages(prev => [...prev, ...newFiles]);
-
-            const newPreviews = newFiles.map((file: File) => URL.createObjectURL(file));
-            setOriginalImagePreviews(prev => [...prev, ...newPreviews]);
-            
+            setOriginalImagePreviews(prev => [...prev, ...newFiles.map(f => URL.createObjectURL(f))]);
             setError('');
-            setGeneratedResult(null);
         }
     };
 
-    const handleRemoveImage = (indexToRemove: number) => {
-        setOriginalImages(prev => prev.filter((_, index) => index !== indexToRemove));
+    const handleRemoveImage = (idx: number) => {
+        setOriginalImages(prev => prev.filter((_, i) => i !== idx));
         setOriginalImagePreviews(prev => {
-            const urlToRevoke = prev[indexToRemove];
-            if (urlToRevoke) {
-                URL.revokeObjectURL(urlToRevoke);
-            }
-            return prev.filter((_, index) => index !== indexToRemove);
+            URL.revokeObjectURL(prev[idx]);
+            return prev.filter((_, i) => i !== idx);
         });
     };
     
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        if (!prompt.trim() || originalImages.length === 0 || isLoading) {
-            setError("لطفا یک تصویر و یک دستور ارائه دهید.");
-            return;
-        }
+        if (!prompt.trim() || originalImages.length === 0 || isLoading) return;
 
         setIsLoading(true);
         setError('');
         setGeneratedResult(null);
 
         try {
-            const imagePayload = await Promise.all(
-                originalImages.map(async (file) => ({
-                    base64ImageData: await fileToBase64(file),
-                    mimeType: file.type,
-                }))
-            );
-
+            const imagePayload = await Promise.all(originalImages.map(async (file) => ({
+                base64ImageData: await fileToBase64(file),
+                mimeType: file.type,
+            })));
             const response = await geminiService.generateFromImages(prompt, imagePayload, model);
             setGeneratedResult(response);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'خطای ناشناخته رخ داد.');
+            setError(err instanceof Error ? err.message : 'خطای ناشناخته.');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleDownloadImage = (dataUrl: string) => {
-        if (!dataUrl) return;
-
-        const mimeTypeMatch = dataUrl.match(/data:(image\/.*?);/);
-        const extension = mimeTypeMatch ? mimeTypeMatch[1].split('/')[1] : 'png';
-
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = `avesta-ai-edited-image-${Date.now()}.${extension}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     return (
-        <div className="flex flex-col h-full animate-fade-in">
-            <h2 className="text-2xl font-semibold mb-2 text-indigo-300">ویرایشگر عکس</h2>
-            <p className="mb-4 text-gray-400">یک یا چند عکس آپلود کنید و با دستورات متنی آن‌ها را ویرایش، ترکیب یا تحلیل کنید.</p>
+        <div className="flex flex-col h-full animate-fade-in p-2">
+            <h2 className="text-2xl font-bold mb-2 text-indigo-300">تحلیل و ویرایش هوشمند عکس</h2>
+            <p className="mb-6 text-sm text-gray-400">عکس آپلود کن و از اوستا بخواه برات تحلیلش کنه یا تغییرش بده.</p>
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
-                {/* Input Panel */}
-                <div className="flex flex-col gap-4 overflow-y-auto pr-2">
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="image-upload" className="block text-sm font-medium text-gray-300 mb-2">۱. آپلود عکس</label>
-                                <input
-                                    id="image-upload"
-                                    type="file"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={handleImageChange}
-                                    className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30"
-                                    disabled={isLoading}
-                                />
-                            </div>
-                             <div>
-                                <label htmlFor="model-select" className="block text-sm font-medium text-gray-300 mb-2">مدل هوش مصنوعی</label>
-                                <select 
-                                    id="model-select" 
-                                    value={model} 
-                                    onChange={e => setModel(e.target.value as ImageEditingModel)} 
-                                    className="block w-full p-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                                    disabled={isLoading}
-                                >
-                                    {imageEditModels.map(m => <option key={m.id} value={m.id} disabled={m.disabled}>{m.name}</option>)}
-                                </select>
-                             </div>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-hidden">
+                <div className="flex flex-col gap-5 overflow-y-auto pr-2">
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-800 space-y-4">
+                            <label className="block text-sm font-bold text-gray-300">۱. آپلود تصاویر</label>
+                            <input type="file" accept="image/*" multiple onChange={handleImageChange} className="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-indigo-600/20 file:text-indigo-300 hover:file:bg-indigo-600/30 cursor-pointer" />
+                            
+                            {originalImagePreviews.length > 0 && (
+                                <div className="grid grid-cols-3 gap-3 pt-2">
+                                    {originalImagePreviews.map((p, i) => (
+                                        <div key={i} className="relative aspect-square">
+                                            <img src={p} className="w-full h-full object-cover rounded-xl border border-gray-700" />
+                                            <button type="button" onClick={() => handleRemoveImage(i)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600 transition">
+                                                <XIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        {originalImagePreviews.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-gray-800/50 rounded-lg">
-                                {originalImagePreviews.map((preview, index) => (
-                                    <div key={index} className="relative">
-                                        <img src={preview} alt={`Original ${index + 1}`} className="w-full h-24 object-cover rounded-md" />
-                                        <button type="button" onClick={() => handleRemoveImage(index)} className="absolute -top-1 -left-1 bg-gray-900 text-gray-400 hover:text-white rounded-full p-1 shadow-md" aria-label="Remove image">
-                                            <XIcon className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        <div>
-                            <label htmlFor="prompt-input" className="block text-sm font-medium text-gray-300 mb-2">۲. دستور شما</label>
-                            <textarea
-                                id="prompt-input"
-                                value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
-                                placeholder="مثال: یک کلاه خنده‌دار روی سر شخص در عکس اول بگذار."
-                                className="w-full p-3 h-28 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition resize-none"
-                                disabled={isLoading}
-                            />
+                        <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-800 space-y-4">
+                            <label className="block text-sm font-bold text-gray-300">۲. تنظیمات مدل (مغز متفکر)</label>
+                            <select value={model} onChange={e => setModel(e.target.value as ImageEditingModel)} className="w-full p-3 bg-gray-800 border border-gray-700 rounded-xl text-sm text-indigo-300 focus:outline-none">
+                                {imageEditModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
                         </div>
-                        <button type="submit" className="self-start px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition font-semibold" disabled={isLoading || originalImages.length === 0 || !prompt.trim()}>
-                            {isLoading ? 'در حال پردازش...' : 'اجرا کن'}
+
+                        <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-800 space-y-4">
+                            <label className="block text-sm font-bold text-gray-300">۳. دستور ویرایش یا تحلیل</label>
+                            <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="مثلاً: این دوتا عکس رو با هم ترکیب کن یا بگو تو این عکس چی میبینی؟" className="w-full p-4 h-32 bg-gray-800 border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition resize-none text-gray-200" />
+                        </div>
+
+                        <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 rounded-xl font-bold shadow-xl shadow-indigo-600/20 transition active:scale-95" disabled={isLoading || originalImages.length === 0 || !prompt.trim()}>
+                            {isLoading ? 'در حال پردازش هوشمند...' : 'اجرای دستور'}
                         </button>
                     </form>
-                    {error && <p className="text-red-400 mt-2">{error}</p>}
+                    {error && <p className="text-red-400 text-center bg-red-400/10 p-3 rounded-xl border border-red-400/20">{error}</p>}
                 </div>
 
-                {/* Output Panel */}
-                <div className="flex flex-col overflow-hidden">
-                    <h3 className="text-lg font-semibold text-gray-200 mb-2">نتیجه</h3>
-                    <div className="flex-1 border border-gray-700 rounded-lg bg-gray-900/50 p-4 flex flex-col items-center justify-center overflow-y-auto">
+                <div className="flex flex-col h-full bg-gray-950/40 rounded-3xl border border-gray-800 p-6 overflow-y-auto">
+                    <h3 className="text-lg font-bold text-indigo-300 mb-4 border-b border-gray-800 pb-2">نتیجه اوستا:</h3>
+                    <div className="flex-1 flex flex-col items-center justify-center">
                         {isLoading && (
-                            <div className="text-center">
-                                <div className="w-12 h-12 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                <p className="mt-4 text-gray-400">در حال پردازش تصویر...</p>
+                            <div className="text-center space-y-4">
+                                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                <p className="text-gray-400 text-sm animate-pulse">در حال تحلیل داده‌های بصری...</p>
                             </div>
                         )}
                         {!isLoading && !generatedResult && !error && (
-                            <p className="text-gray-500">نتیجه اینجا نمایش داده می‌شود.</p>
+                            <div className="text-center space-y-3 opacity-30">
+                                <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto">
+                                    <EditIcon className="w-10 h-10" />
+                                </div>
+                                <p className="text-sm">منتظر دستور شما برای شروع پردازش...</p>
+                            </div>
                         )}
                         {generatedResult && (
-                            <div className="space-y-4 w-full">
+                            <div className="w-full space-y-6 animate-slide-up">
                                 {generatedResult.image && (
-                                    <div className="relative group w-full flex justify-center">
-                                        <img 
-                                            src={generatedResult.image} 
-                                            alt="Generated result" 
-                                            className="max-w-full h-auto max-h-[60vh] object-contain rounded-lg cursor-pointer"
-                                            onClick={() => setZoomedImage(generatedResult.image)}
-                                        />
-                                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation(); // Prevent zoom
-                                                    handleDownloadImage(generatedResult.image!);
-                                                }}
-                                                className="p-3 bg-white/20 text-white rounded-full hover:bg-white/30 backdrop-blur-sm transition-transform transform active:scale-90"
-                                                aria-label="دانلود تصویر"
-                                                title="دانلود با کیفیت اصلی"
-                                            >
-                                                <DownloadIcon className="w-8 h-8"/>
+                                    <div className="relative group rounded-2xl overflow-hidden shadow-2xl border border-white/5 bg-black">
+                                        <img src={generatedResult.image} className="w-full h-auto object-contain" />
+                                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => {
+                                                const a = document.createElement('a');
+                                                a.href = generatedResult.image!;
+                                                a.download = 'avesta-edited.png';
+                                                a.click();
+                                            }} className="p-4 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md">
+                                                <DownloadIcon className="w-8 h-8 text-white"/>
                                             </button>
                                         </div>
                                     </div>
                                 )}
                                 {generatedResult.text && (
-                                    <div className="p-3 bg-gray-800 rounded-lg">
-                                        <p className="whitespace-pre-wrap text-gray-300">{generatedResult.text}</p>
+                                    <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl text-gray-200 leading-relaxed text-lg">
+                                        {generatedResult.text}
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
-            
-            {zoomedImage && (
-                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setZoomedImage(null)}>
-                    <img src={zoomedImage} alt="Zoomed result" className="max-w-full max-h-full object-contain" />
-                    <button className="absolute top-4 right-4 text-white" aria-label="بستن">
-                        <XIcon className="w-8 h-8" />
-                    </button>
-                </div>
-            )}
-
-            <div className="flex items-center gap-2 p-2 mt-4 text-sm text-gray-400 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                <InfoIcon className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                <span>محدودیت استفاده (نمایشی): ۲۰ ویرایش در روز.</span>
             </div>
         </div>
     );

@@ -31,9 +31,34 @@ export interface CodeFile {
   language: string;
 }
 
-export type TextGenerationModel = 'gemini-flash-lite-latest' | 'gemini-flash-latest' | 'gemini-2.5-flash' | 'gemini-3-pro-preview' | 'gemini-3-flash-preview';
-export type ImageGenerationModel = 'imagen-4.0-generate-001' | 'imagen-3.0-generate-001' | 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview';
-export type ImageEditingModel = 'gemini-2.5-flash-image';
+export type TextGenerationModel = 
+  | 'gemini-3-pro-preview' 
+  | 'gemini-3-flash-preview'
+  | 'gemini-2.5-pro-preview'
+  | 'gemini-2.5-flash-preview'
+  | 'gemini-2.0-pro-preview'
+  | 'gemini-2.0-flash-preview'
+  | 'gemini-flash-lite-latest' 
+  | 'gemini-flash-latest';
+
+export type ImageGenerationModel = 
+  | 'gemini-3-pro-image-preview'
+  | 'gemini-3-flash-preview'
+  | 'gemini-2.5-pro-preview'
+  | 'gemini-2.5-flash-image' 
+  | 'gemini-2.0-pro-preview'
+  | 'gemini-2.0-flash-preview'
+  | 'imagen-4.0-generate-001' 
+  | 'imagen-3.0-generate-001';
+
+export type ImageEditingModel = 
+  | 'gemini-3-pro-preview'
+  | 'gemini-3-flash-preview'
+  | 'gemini-2.5-pro-preview'
+  | 'gemini-2.5-flash-image' 
+  | 'gemini-2.0-pro-preview'
+  | 'gemini-2.0-flash-preview';
+
 export type VideoGenerationModel = 'veo-3.1-fast-generate-preview' | 'veo-3.1-generate-preview';
 
 export type TTSVoice = 'Kore' | 'Puck' | 'Zephyr' | 'Charon' | 'Fenrir';

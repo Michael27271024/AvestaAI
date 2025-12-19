@@ -6,7 +6,7 @@ import { geminiService, fileToBase64, fileToDataURL } from '../services/geminiSe
 import type { Chat as ChatSession } from '@google/genai';
 import { SendIcon, PaperclipIcon, XIcon, CopyIcon, CheckIcon, TrashIcon, ChatIcon, HomeIcon, EditIcon, MenuIcon } from './icons/FeatureIcons';
 
-const SESSIONS_STORAGE_KEY = 'avesta_chat_sessions_v2';
+const SESSIONS_STORAGE_KEY = 'avesta_chat_sessions_v4';
 
 const LoadingIndicator: FC = () => (
   <div className="flex items-center gap-1.5">
@@ -17,9 +17,12 @@ const LoadingIndicator: FC = () => (
 );
 
 const textModels: { id: TextGenerationModel, name: string, shortName: string }[] = [
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (متعادل و سریع)', shortName: 'Flash 2.5' },
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash (هوشمندترین)', shortName: 'Flash 3.0' },
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro (بسیار سنگین)', shortName: 'Pro 3.0' },
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro', shortName: 'Pro 3.0' },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash', shortName: 'Flash 3.0' },
+    { id: 'gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro', shortName: 'Pro 2.5' },
+    { id: 'gemini-2.5-flash-preview', name: 'Gemini 2.5 Flash', shortName: 'Flash 2.5' },
+    { id: 'gemini-2.0-pro-preview', name: 'Gemini 2.0 Pro', shortName: 'Pro 2.0' },
+    { id: 'gemini-2.0-flash-preview', name: 'Gemini 2.0 Flash', shortName: 'Flash 2.0' },
 ];
 
 interface CodeBlockProps {
@@ -36,12 +39,12 @@ const CodeBlock: FC<CodeBlockProps> = ({ language, code }) => {
     };
 
     return (
-        <div className="my-2 rounded-lg overflow-hidden border border-gray-700 bg-gray-950/90 shadow-sm">
+        <div className="my-2 rounded-lg overflow-hidden border border-gray-700 bg-gray-950/90 shadow-sm" dir="ltr">
             <div className="flex justify-between items-center px-3 py-1.5 bg-gray-900 border-b border-gray-800">
                 <span className="text-[10px] text-indigo-400 font-mono font-bold uppercase">{language || 'code'}</span>
                 <button onClick={handleCopy} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-white transition-colors">
                     {copied ? <CheckIcon className="w-3 h-3 text-green-400" /> : <CopyIcon className="w-3 h-3" />}
-                    <span>{copied ? 'کپی شد' : 'کپی'}</span>
+                    <span>{copied ? 'Copied' : 'Copy'}</span>
                 </button>
             </div>
             <div className="p-3 overflow-x-auto">
@@ -96,7 +99,7 @@ const MessageBubble: FC<{ msg: ChatMessage }> = ({ msg }) => {
                 <div className="flex justify-end mt-1.5 pt-1.5 border-t border-gray-700/20">
                     <button onClick={handleCopyAll} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-indigo-300 transition-colors">
                          {copied ? <CheckIcon className="w-3 h-3 text-green-400" /> : <CopyIcon className="w-3 h-3" />}
-                         <span>{copied ? 'کپی' : 'کپی'}</span>
+                         <span>{copied ? 'کپی شد' : 'کپی'}</span>
                     </button>
                 </div>
             )}
@@ -119,7 +122,6 @@ export const Chat: FC = () => {
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
 
-  // Load from Storage & handle initial message from Home
   useEffect(() => {
     const saved = localStorage.getItem(SESSIONS_STORAGE_KEY);
     let initialSessions: ChatSessionRecord[] = [];
@@ -133,7 +135,6 @@ export const Chat: FC = () => {
     const initialMsg = sessionStorage.getItem('initialChatMessage');
     if (initialMsg) {
       sessionStorage.removeItem('initialChatMessage');
-      // Set small delay to ensure component is ready
       setTimeout(() => {
           sendMessage(initialMsg);
       }, 100);
@@ -142,7 +143,6 @@ export const Chat: FC = () => {
     }
   }, []);
 
-  // Sync to Storage
   useEffect(() => {
     if (sessions.length > 0) {
       localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
@@ -151,7 +151,7 @@ export const Chat: FC = () => {
     }
   }, [sessions]);
 
-  // Handle sidebar responsive state
+  // Fix: use removeEventListener instead of removeResizeListener
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) setShowHistory(true);
@@ -162,7 +162,7 @@ export const Chat: FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Initialize Gemini session when active session changes
+  // وابستگی به مدل اضافه شد تا با تغییر مدل نشست چت ریست شود
   useEffect(() => {
     if (activeSession) {
       chatSessionRef.current = geminiService.createChatSession(activeSession.model, activeSession.messages);
@@ -170,7 +170,7 @@ export const Chat: FC = () => {
       chatSessionRef.current = null;
     }
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, [activeSessionId]);
+  }, [activeSessionId, activeSession?.model]);
 
   const createNewChat = () => {
     const newId = crypto.randomUUID();
@@ -178,7 +178,7 @@ export const Chat: FC = () => {
       id: newId,
       title: 'گفتگوی جدید',
       messages: [],
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       createdAt: Date.now()
     };
     setSessions(prev => [newSession, ...prev]);
@@ -225,14 +225,13 @@ export const Chat: FC = () => {
       setIsLoading(true);
       let currentId = activeSessionId;
       
-      // If no session exists, create one immediately
       if (!currentId) {
           currentId = crypto.randomUUID();
           const newS: ChatSessionRecord = { 
               id: currentId, 
               title: text.slice(0, 30), 
               messages: [], 
-              model: 'gemini-2.5-flash', 
+              model: 'gemini-3-flash-preview', 
               createdAt: Date.now() 
           };
           setSessions(prev => [newS, ...prev]);
@@ -246,7 +245,6 @@ export const Chat: FC = () => {
 
       const userMsg: ChatMessage = { sender: 'user', text, mediaPreviews: previews.length > 0 ? previews : undefined };
       
-      // Update local message list for immediate rendering
       setSessions(prev => prev.map(s => {
           if (s.id === currentId) {
               const newTitle = (s.title === 'گفتگوی جدید' || s.messages.length === 0) 
@@ -263,10 +261,9 @@ export const Chat: FC = () => {
 
       try {
         const targetSession = sessions.find(s => s.id === currentId);
-        const currentModel = targetSession?.model || 'gemini-2.5-flash';
+        const currentModel = targetSession?.model || 'gemini-3-flash-preview';
         const currentHistory = targetSession?.messages || [];
 
-        // Create or get session
         if (!chatSessionRef.current || activeSessionId !== currentId) {
             chatSessionRef.current = geminiService.createChatSession(currentModel, currentHistory);
         }
@@ -281,7 +278,6 @@ export const Chat: FC = () => {
         let aiText = '';
         const aiMsg: ChatMessage = { sender: 'ai', text: '' };
         
-        // Add placeholder AI message
         setSessions(prev => prev.map(s => {
             if (s.id === currentId) return { ...s, messages: [...s.messages, aiMsg] };
             return s;
@@ -301,7 +297,7 @@ export const Chat: FC = () => {
       } catch (err) {
         console.error(err);
         setSessions(prev => prev.map(s => {
-            if (s.id === currentId) return { ...s, messages: [...s.messages, { sender: 'ai', text: "متاسفانه مشکلی در ارتباط با سرور پیش آمد." }] };
+            if (s.id === currentId) return { ...s, messages: [...s.messages, { sender: 'ai', text: "اوخ! رفیق سیستمم یه لحظه هنگ کرد، دوباره بگو چکار کنم؟" }] };
             return s;
         }));
       } finally {
@@ -354,11 +350,11 @@ export const Chat: FC = () => {
                 </button>
                 <h3 className="font-bold text-gray-200 truncate text-sm sm:text-base">{activeSession?.title || 'چت با اوستا'}</h3>
             </div>
-            <select value={activeSession?.model || 'gemini-2.5-flash'} onChange={e => {
+            <select value={activeSession?.model || 'gemini-3-flash-preview'} onChange={e => {
                 const newModel = e.target.value as TextGenerationModel;
                 setSessions(prev => prev.map(s => s.id === activeSessionId ? {...s, model: newModel} : s));
             }} className="bg-gray-800 border border-gray-700 text-[10px] sm:text-xs rounded-lg px-2 py-1.5 text-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[100px] sm:max-w-none">
-                {textModels.map(m => <option key={m.id} value={m.id}>{window.innerWidth < 640 ? m.shortName : m.name}</option>)}
+                {textModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
         </div>
 
