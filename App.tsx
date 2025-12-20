@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import type { FC } from 'react';
 import { Sidebar } from './components/Sidebar';
@@ -15,8 +16,8 @@ import { WebsiteBuilder } from './components/WebsiteBuilder';
 import { GameBuilder } from './components/GameBuilder';
 import { AndroidAppBuilder } from './components/AndroidAppBuilder';
 import { CodeAssistant } from './components/CodeAssistant';
-import { AudioGenerator } from './components/AudioGenerator';
 import { SongwriterAssistant } from './components/SongwriterAssistant';
+import { AudioGenerator } from './components/AudioGenerator';
 import { SongIdentifier } from './components/SongIdentifier';
 import { SongSearch } from './components/SongSearch';
 import type { ActiveView } from './types';
@@ -28,7 +29,7 @@ const App: FC = () => {
 
   const handleSetActiveView = (view: ActiveView) => {
     setActiveView(view);
-    setIsSidebarOpen(false); // Close sidebar on mobile when a new view is selected
+    setIsSidebarOpen(false);
   };
 
   const renderActiveView = useCallback(() => {
