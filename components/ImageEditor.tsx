@@ -6,12 +6,8 @@ import { InfoIcon, XIcon, DownloadIcon, EditIcon } from './icons/FeatureIcons';
 import type { ImageEditingModel } from '../types';
 
 const imageEditModels: { id: ImageEditingModel, name: string }[] = [
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro' },
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash' },
-    { id: 'gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro' },
-    { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash' },
-    { id: 'gemini-2.0-pro-preview', name: 'Gemini 2.0 Pro' },
-    { id: 'gemini-2.0-flash-preview', name: 'Gemini 2.0 Flash' },
+    { id: 'gemini-2.5-flash-image' as any, name: 'Gemini 2.5 Flash Image' },
+    { id: 'gemini-3-pro-image-preview' as any, name: 'Gemini 3.0 Pro Image' },
 ];
 
 export const ImageEditor: FC = () => {
@@ -21,7 +17,7 @@ export const ImageEditor: FC = () => {
     const [generatedResult, setGeneratedResult] = useState<{ text: string | null, image: string | null } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [model, setModel] = useState<ImageEditingModel>('gemini-3-flash-preview');
+    const [model, setModel] = useState<ImageEditingModel>('gemini-2.5-flash-image' as any);
 
     useEffect(() => {
         return () => originalImagePreviews.forEach(url => URL.revokeObjectURL(url));
@@ -30,7 +26,6 @@ export const ImageEditor: FC = () => {
     const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (files && files.length > 0) {
-            // Fix: Explicitly type newFiles as File[] to ensure the map parameter 'f' is correctly typed for URL.createObjectURL.
             const newFiles: File[] = Array.from(files);
             setOriginalImages(prev => [...prev, ...newFiles]);
             setOriginalImagePreviews(prev => [...prev, ...newFiles.map((f: File) => URL.createObjectURL(f))]);
@@ -71,7 +66,7 @@ export const ImageEditor: FC = () => {
     return (
         <div className="flex flex-col h-full animate-fade-in p-2">
             <h2 className="text-2xl font-bold mb-2 text-indigo-300">تحلیل و ویرایش هوشمند عکس</h2>
-            <p className="mb-6 text-sm text-gray-400">عکس آپلود کن و از اوستا بخواه برات تحلیلش کنه یا تغییرش بده.</p>
+            <p className="mb-6 text-sm text-gray-400">عکس آپلود کن و از اوستا بخواه برات تغییرش بده.</p>
 
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-hidden">
                 <div className="flex flex-col gap-5 overflow-y-auto pr-2">
@@ -95,31 +90,31 @@ export const ImageEditor: FC = () => {
                         </div>
 
                         <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-800 space-y-4">
-                            <label className="block text-sm font-bold text-gray-300">۲. تنظیمات مدل (مغز متفکر)</label>
+                            <label className="block text-sm font-bold text-gray-300">۲. تنظیمات مدل</label>
                             <select value={model} onChange={e => setModel(e.target.value as ImageEditingModel)} className="w-full p-3 bg-gray-800 border border-gray-700 rounded-xl text-sm text-indigo-300 focus:outline-none">
                                 {imageEditModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
                         </div>
 
                         <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-800 space-y-4">
-                            <label className="block text-sm font-bold text-gray-300">۳. دستور ویرایش یا تحلیل</label>
-                            <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="مثلاً: این دوتا عکس رو با هم ترکیب کن یا بگو تو این عکس چی میبینی؟" className="w-full p-4 h-32 bg-gray-800 border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition resize-none text-gray-200" />
+                            <label className="block text-sm font-bold text-gray-300">۳. دستور ویرایش</label>
+                            <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="مثلاً: یک کلاه قرمز به تصویر اضافه کن یا تصویر را به سبک آبرنگ تغییر بده." className="w-full p-4 h-32 bg-gray-800 border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition resize-none text-gray-200" />
                         </div>
 
                         <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 rounded-xl font-bold shadow-xl shadow-indigo-600/20 transition active:scale-95" disabled={isLoading || originalImages.length === 0 || !prompt.trim()}>
-                            {isLoading ? 'در حال پردازش هوشمند...' : 'اجرای دستور'}
+                            {isLoading ? 'در حال پردازش...' : 'اعمال تغییرات'}
                         </button>
                     </form>
                     {error && <p className="text-red-400 text-center bg-red-400/10 p-3 rounded-xl border border-red-400/20">{error}</p>}
                 </div>
 
                 <div className="flex flex-col h-full bg-gray-950/40 rounded-3xl border border-gray-800 p-6 overflow-y-auto">
-                    <h3 className="text-lg font-bold text-indigo-300 mb-4 border-b border-gray-800 pb-2">نتیجه اوستا:</h3>
+                    <h3 className="text-lg font-bold text-indigo-300 mb-4 border-b border-gray-800 pb-2">نتیجه ویرایش:</h3>
                     <div className="flex-1 flex flex-col items-center justify-center">
                         {isLoading && (
                             <div className="text-center space-y-4">
                                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                <p className="text-gray-400 text-sm animate-pulse">در حال تحلیل داده‌های بصری...</p>
+                                <p className="text-gray-400 text-sm animate-pulse">در حال اعمال جادوی بصری...</p>
                             </div>
                         )}
                         {!isLoading && !generatedResult && !error && (
@@ -127,7 +122,7 @@ export const ImageEditor: FC = () => {
                                 <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto">
                                     <EditIcon className="w-10 h-10" />
                                 </div>
-                                <p className="text-sm">منتظر دستور شما برای شروع پردازش...</p>
+                                <p className="text-sm">تصویری رندر نشده است.</p>
                             </div>
                         )}
                         {generatedResult && (
@@ -148,7 +143,7 @@ export const ImageEditor: FC = () => {
                                     </div>
                                 )}
                                 {generatedResult.text && (
-                                    <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl text-gray-200 leading-relaxed text-lg">
+                                    <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl text-gray-200 leading-relaxed text-sm">
                                         {generatedResult.text}
                                     </div>
                                 )}

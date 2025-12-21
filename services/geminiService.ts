@@ -1,6 +1,5 @@
 
 import { GoogleGenAI, Type, Modality, HarmCategory, HarmBlockThreshold } from '@google/genai';
-import type { Chat, GenerateContentResponse } from '@google/genai';
 import type { CodeFile, GroundingSource, ImageGenerationModel, ImageEditingModel, VideoGenerationModel, TTSVoice, TextGenerationModel, ChatMessage } from '../types';
 
 export const fileToBase64 = (file: File): Promise<string> => {
@@ -43,11 +42,8 @@ const getModelConfig = () => ({
 });
 
 export const geminiService = {
-    createChatSession: (model: TextGenerationModel, history: ChatMessage[] = []): Chat => {
+    createChatSession: (model: TextGenerationModel, history: ChatMessage[] = []): any => {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        
-        // تبدیل تاریخچه به فرمت مورد نیاز API
-        // نکته: برای جلوگیری از خطا در حجم توکن‌ها، فقط متن پیام‌های قبلی را در تاریخچه نگه می‌داریم
         const formattedHistory = history
             .filter(msg => msg.text && msg.text.trim() !== "")
             .map(msg => ({
@@ -81,15 +77,15 @@ export const geminiService = {
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
             
+            // Step 1: Translate to English for better image generation results
             const translationResponse = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
-                contents: `Translate this to artistic English: "${prompt}"`,
-                config: { ...getModelConfig(), systemInstruction: "Translate only." }
+                contents: `Translate this image generation prompt to professional artistic English, be descriptive: "${prompt}"`,
+                config: { temperature: 0.7, systemInstruction: "Translate only." }
             });
             const translatedPrompt = translationResponse.text?.trim() || prompt;
             
             let images: string[] = [];
-            const targetModel = model.includes('pro') ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
 
             if (model.includes('imagen')) {
                 const imageResponse = await ai.models.generateImages({
@@ -99,44 +95,66 @@ export const geminiService = {
                 });
                 images = imageResponse.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
             } else {
-                const config: any = { imageConfig: { aspectRatio: aspectRatio as any, imageSize: '1K' } };
+                // For Gemini 3 Pro Image or Gemini 2.5 Flash Image
+                const targetModel = model.includes('pro') ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
                 const imageResponse = await ai.models.generateContent({
                     model: targetModel,
                     contents: { parts: [{ text: translatedPrompt }] },
-                    config: config
+                    config: {
+                        imageConfig: {
+                            aspectRatio: aspectRatio as any,
+                            imageSize: model.includes('pro') ? '1K' : undefined
+                        }
+                    }
                 });
+                
                 for (const part of imageResponse.candidates[0].content.parts) {
-                    if (part.inlineData) images.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+                    if (part.inlineData) {
+                        images.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+                    }
                 }
             }
             return { images, translatedPrompt };
         } catch (error) {
             console.error("Image Gen Error:", error);
-            throw new Error("خطا در خلق تصویر رفیق. شاید کلیدت مشکل داره.");
+            throw new Error("خطا در خلق تصویر رفیق. شاید کلیدت مشکل داره یا مدل در دسترس نیست.");
         }
     },
 
     generateFromImages: async (prompt: string, images: { base64ImageData: string, mimeType: string }[], model: ImageEditingModel): Promise<{ text: string | null, image: string | null }> => {
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+            
+            // Map to image-capable models if a text model was selected
+            let targetModel = model;
+            if (!model.includes('image') && !model.includes('imagen')) {
+                targetModel = model.includes('pro') ? 'gemini-3-pro-image-preview' as any : 'gemini-2.5-flash-image' as any;
+            }
+
             const parts = [
                 ...images.map(img => ({ inlineData: { data: img.base64ImageData, mimeType: img.mimeType } })),
-                { text: prompt }
+                { text: prompt + " If the user asks for a change, provide the edited image as output." }
             ];
+
             const response = await ai.models.generateContent({
-                model: model,
+                model: targetModel,
                 contents: { parts },
-                config: getModelConfig()
+                // Note: No systemInstruction here to avoid distracting image models
             });
+
             let textResult: string | null = null;
             let imageResult: string | null = null;
-            for (const part of response.candidates[0].content.parts) {
-                if (part.text) textResult = part.text;
-                else if (part.inlineData) imageResult = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+
+            if (response.candidates?.[0]?.content?.parts) {
+                for (const part of response.candidates[0].content.parts) {
+                    if (part.text) textResult = part.text;
+                    else if (part.inlineData) imageResult = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                }
             }
+            
             return { text: textResult, image: imageResult };
         } catch (error) {
-            console.error("Image Analysis Error:", error);
+            console.error("Image Analysis/Edit Error:", error);
             throw new Error("خطا در پردازش تصویر رفیق.");
         }
     },
